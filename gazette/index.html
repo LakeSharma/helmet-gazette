@@ -57,9 +57,23 @@ figure.ph{margin:0 0 14px;break-inside:avoid}
 .ph:hover .frame::after{opacity:0}
 .ph figcaption{font-size:14px;line-height:1.4;font-style:italic;padding:6px 0 0;border-bottom:1px solid var(--soft);padding-bottom:8px}
 .ph.lead-photo img{aspect-ratio:5/4}
+.scene .stage{position:relative;aspect-ratio:4/3;overflow:hidden;border:1px solid var(--rule);background:#e7d6c8}
+.scene svg.bg,.scene svg.fg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.scene .stage::after{display:none}
+.ph.scene img.cut{position:absolute;left:50%;bottom:0;height:86%;width:auto;max-width:98%;aspect-ratio:auto;
+  transform:translateX(-50%);object-fit:contain;filter:none}
+.ph.scene img.cut.round{height:60%;bottom:14%;aspect-ratio:1;border-radius:50%;object-fit:cover;border:4px solid #fff;
+  box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.ph.scene.s-crown img.cut{height:74%}
+.ph.scene.s-bench img.cut{bottom:12%;height:80%}
+.ph.scene.s-rain img.cut{height:72%}
+.ph.scene.s-wrecking img.cut{left:58%}
+.poster .ph.scene img.cut{aspect-ratio:auto}
+.poster .ph.scene .stage{aspect-ratio:1}
 .ph.thumb{float:right;width:84px;margin:4px 0 6px 12px}
 .ph.thumb img{aspect-ratio:1}
 .box.feature{grid-column:span 2}
+.box.feature .ph.scene.wide{float:left;width:48%;margin:2px 20px 10px 0}
 .box.feature .ph.wide{float:left;width:46%;margin:2px 20px 10px 0}
 .box.feature .line{clear:both}
 .kicker{margin:0 0 4px;font:600 13px/1.2 Oswald,'Arial Narrow',sans-serif;color:var(--win);letter-spacing:.02em}
@@ -177,7 +191,7 @@ td.big{font:700 22px/1 Oswald,'Arial Narrow',sans-serif;color:var(--head);width:
   .cols{column-count:1}
 }
 @media print{html{background:#fff}.sheet{box-shadow:none;background:#fff}}
-</style></head><body><div class="sheet"><header><div class="ears"><div class="ear"><b>The archive</b>Every edition</div><h1 class="title"><a href="index.html">The Helmet Brigade Gazette</a></h1><div class="ear"><b>5</b>editions printed</div></div><div class="dateline"><span>All editions</span><span>Newest first</span><span></span></div></header><p class="histlink"><a href="history.html">League history: champions, all-time records, and the head-to-head lookup</a></p><ul class="archive" style="padding:0;margin:0"><li><a href="2026-week-05.html"><span class="byline">Week 5, 2026</span><h4>Bower Rangers stuns 2nd-place madmaxwellog49</h4><p>The 12th-place team won 148.12–123.34.</p></a></li><li><a href="2026-week-04.html"><span class="byline">Week 4, 2026</span><h4>Jared’s Big Papa stuns 2nd-place madmaxwellog49</h4><p>The 12th-place team won 136.42–114.08.</p></a></li><li><a href="2026-week-03.html"><span class="byline">Week 3, 2026</span><h4>Love is War rewrites the record book with 174.20</h4><p>Love is War set the all-time league record with 174.20 points (old mark 163.96).</p></a></li><li><a href="2026-week-02.html"><span class="byline">Week 2, 2026</span><h4>Jared’s Big Papa stuns 4th-place RomoCop</h4><p>The 8th-place team won 94.06–60.40.</p></a></li><li><a href="2026-week-01.html"><span class="byline">Week 1, 2026</span><h4>Caleb Williams&#x27; 37.26 Powers madmaxwellog49 to Week 1&#x27;s Top Score</h4><p>Despite leaving a 33.80-point wideout on the bench, madmaxwellog49 posted 163.96 and opened the season as the league&#x27;s lone 13-0 all-play team.</p></a></li></ul></div><script>
+</style></head><body><div class="sheet"><header><div class="ears"><div class="ear"><b>The archive</b>Every edition</div><h1 class="title"><a href="index.html">The Helmet Brigade Gazette</a></h1><div class="ear"><b>5</b>editions printed</div></div><div class="dateline"><span>All editions</span><span>Newest first</span><span></span></div></header><p class="histlink"><a href="history.html">League history: champions, all-time records, and the head-to-head lookup</a></p><ul class="archive" style="padding:0;margin:0"><li><a href="2026-week-05.html"><span class="byline">Week 5, 2026</span><h4>Bower Rangers stuns 2nd-place madmaxwellog49</h4><p>Jared came in 12th and won 148.12–123.34.</p></a></li><li><a href="2026-week-04.html"><span class="byline">Week 4, 2026</span><h4>Jared’s Big Papa stuns 2nd-place madmaxwellog49</h4><p>Austin came in 12th and won 136.42–114.08.</p></a></li><li><a href="2026-week-03.html"><span class="byline">Week 3, 2026</span><h4>Love is War rewrites the record book with 174.20</h4><p>Mike set the all-time league record with 174.20 points (old mark 163.96).</p></a></li><li><a href="2026-week-02.html"><span class="byline">Week 2, 2026</span><h4>Jared’s Big Papa stuns 4th-place RomoCop</h4><p>Austin came in 8th and won 94.06–60.40.</p></a></li><li><a href="2026-week-01.html"><span class="byline">Week 1, 2026</span><h4>AMBULANCE! buries mikhawk by 61.94</h4><p>Chris won 124.06–62.12, the most lopsided game of the week.</p></a></li></ul></div><script>
 document.querySelectorAll('.chart').forEach(function(c){
   var pal=['#1E5B3C','#8a2a1c','#2f4a6b','#9a6b12','#6b2f6b','#2f6b6b'],n=0;
   c.querySelectorAll('button[data-t]').forEach(function(b){
