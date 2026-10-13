@@ -1,0 +1,81 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>The Helmet Brigade Gazette: archive</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400;1,8..60,600&family=UnifrakturMaguntia&display=swap" rel="stylesheet"><style>
+:root{--paper:#F1DFD1;--ink:#262626;--head:#000;--rule:#000;--soft:rgba(0,0,0,.28);--win:#1E5B3C;--muted:#5b5048}
+*{box-sizing:border-box}
+html{background:#d9c6b8}
+body{margin:0;color:var(--ink);font:17px/1.55 'Source Serif 4',Georgia,'Times New Roman',serif;font-optical-sizing:auto}
+.sheet{max-width:1180px;margin:0 auto;padding:22px 30px 56px;background:var(--paper);min-height:100vh;
+  box-shadow:0 0 0 1px rgba(0,0,0,.08),0 18px 50px rgba(60,30,10,.18)}
+a{color:inherit}
+a:focus-visible{outline:2px solid var(--win);outline-offset:2px}
+.ears{display:grid;grid-template-columns:160px 1fr 160px;align-items:center;gap:18px;padding-bottom:8px}
+.ear{border:1px solid var(--rule);padding:8px 10px;font-size:13px;line-height:1.35;text-align:center}
+.ear b{display:block;font:600 15px/1.2 Oswald,'Arial Narrow',sans-serif}
+.title{margin:0;text-align:center;color:var(--head);font:400 clamp(42px,7.6vw,94px)/1.02 'UnifrakturMaguntia','Old English Text MT',serif}
+.title a{text-decoration:none}
+.dateline{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--rule);
+  border-bottom:4px double var(--rule);padding:5px 2px;font:500 14px/1.3 Oswald,'Arial Narrow',sans-serif}
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));border-bottom:1px solid var(--rule)}
+.score{padding:9px 12px;border-right:1px solid var(--soft);font:500 15px/1.4 Oswald,'Arial Narrow',sans-serif;text-decoration:none}
+.score:last-child{border-right:0}
+.score:hover .tm{text-decoration:underline}
+.score div{display:flex;justify-content:space-between;gap:10px}
+.score .tm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score .won{color:var(--win);font-weight:700}
+.score .pts{font-variant-numeric:tabular-nums}
+.front{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:30px;padding:20px 0 24px;border-bottom:4px double var(--rule)}
+.hed{margin:0 0 12px;color:var(--head);font:700 clamp(36px,5.6vw,70px)/.98 Oswald,'Arial Narrow',sans-serif;letter-spacing:-.012em;text-wrap:balance}
+.dek{margin:0 0 16px;font-size:21px;line-height:1.35;font-style:italic;max-width:46em}
+.cols{column-count:2;column-gap:30px;column-rule:1px solid var(--soft)}
+.cols p{margin:0 0 .85em;text-align:justify;hyphens:auto}
+.cols p:first-child::first-letter{float:left;font:700 4.1em/.8 Oswald,'Arial Narrow',sans-serif;padding:.06em .09em 0 0;color:var(--head)}
+.byline{font:500 13px/1.3 Oswald,'Arial Narrow',sans-serif;color:var(--muted);margin:0 0 12px}
+aside.side{border-left:1px solid var(--rule);padding-left:22px}
+h3{margin:0 0 10px;padding-top:6px;border-top:4px solid var(--rule);color:var(--head);font:700 22px/1.15 Oswald,'Arial Narrow',sans-serif}
+h3 small{font:italic 400 14px 'Source Serif 4',Georgia,serif;color:var(--muted);margin-left:6px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;font-variant-numeric:tabular-nums}
+th{font:500 13px Oswald,'Arial Narrow',sans-serif;text-align:left;border-bottom:1px solid var(--rule);padding:4px 6px 4px 0}
+td{border-bottom:1px solid var(--soft);padding:5px 6px 5px 0;vertical-align:top}
+td.n,th.n{text-align:right}
+.up{color:var(--win)}
+.down{color:#8a2a1c}
+.section{padding-top:26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:26px 30px}
+.box h4{margin:0 0 6px;color:var(--head);font:700 23px/1.1 Oswald,'Arial Narrow',sans-serif;text-wrap:balance}
+.box p{margin:0 0 10px}
+.line{font:500 14px/1.45 Oswald,'Arial Narrow',sans-serif;border-top:1px solid var(--rule);padding-top:6px}
+.line div{display:flex;justify-content:space-between}
+.perf{font-size:14px;color:var(--muted);margin-top:6px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px}
+.three>div+div{border-left:1px solid var(--soft);padding-left:30px}
+dl{margin:0}
+dt{font:600 16px/1.2 Oswald,'Arial Narrow',sans-serif;color:var(--head);margin-top:12px}
+dt:first-child{margin-top:0}
+dd{margin:2px 0 0}
+.column{background:rgba(255,255,255,.28);border:1px solid var(--rule);padding:16px 20px}
+.column h4{margin:0 0 8px;font:italic 600 26px/1.15 'Source Serif 4',Georgia,serif;color:var(--head)}
+.column p{margin:0 0 .8em}
+ul.plain{margin:0;padding:0;list-style:none}
+ul.plain li{padding:6px 0;border-bottom:1px solid var(--soft)}
+.previously{font-size:15px}
+.previously a{font-weight:600}
+footer{margin-top:34px;border-top:4px double var(--rule);padding-top:10px;display:flex;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;font:500 15px Oswald,'Arial Narrow',sans-serif}
+.archive li{padding:14px 0;border-bottom:1px solid var(--soft);list-style:none}
+.archive a{text-decoration:none}
+.archive a:hover h4{text-decoration:underline}
+.archive h4{margin:2px 0;font:700 28px/1.1 Oswald,'Arial Narrow',sans-serif;color:var(--head)}
+.archive p{margin:0;font-style:italic}
+@media (max-width:860px){
+  .front{grid-template-columns:1fr}
+  aside.side{border-left:0;padding-left:0}
+  .three{grid-template-columns:1fr}
+  .three>div+div{border-left:0;padding-left:0}
+}
+@media (max-width:620px){
+  .sheet{padding:14px 16px 40px}
+  .ears{grid-template-columns:1fr}
+  .ear{display:none}
+  .cols{column-count:1}
+}
+@media print{html{background:#fff}.sheet{box-shadow:none;background:#fff}}
+</style></head><body><div class="sheet"><header><div class="ears"><div class="ear"><b>The archive</b>Every edition</div><h1 class="title"><a href="index.html">The Helmet Brigade Gazette</a></h1><div class="ear"><b>1</b>editions printed</div></div><div class="dateline"><span>All editions</span><span>Newest first</span><span></span></div></header><ul class="archive" style="padding:0;margin:0"><li><a href="2026-week-05.html"><span class="byline">Week 5, 2026</span><h4>Love Is War Drops 171.88 While Mikhawk Benches a 39.46-Point Maye</h4><p>Love is War posts the week&#x27;s high score in a 91.34-point demolition, and mikhawk loses by 4.58 with Drake Maye on the bench.</p></a></li></ul></div></body></html>
