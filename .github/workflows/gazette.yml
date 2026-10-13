@@ -1,0 +1,51 @@
+name: Weekly Gazette
+
+on:
+  schedule:
+    - cron: "0 14 * * 2"   # Every Tuesday, 9 am Central (14:00 UTC)
+  workflow_dispatch:        # Adds a "Run workflow" button for printing on demand
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: gazette
+  cancel-in-progress: false
+
+jobs:
+  print:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Print this week's edition
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python sleeper_gazette.py --out gazette
+
+      - name: Save the paper's memory
+        run: |
+          git config user.name "gazette-bot"
+          git config user.email "gazette-bot@users.noreply.github.com"
+          git add gazette
+          git commit -m "Weekly edition" || echo "Nothing new to save"
+          git push
+
+      - name: Prepare the website
+        run: rsync -a --exclude data gazette/ _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
