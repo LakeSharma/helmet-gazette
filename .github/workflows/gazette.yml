@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 14 * * 2"   # Every Tuesday, 9 am Central (14:00 UTC)
   workflow_dispatch:        # Adds a "Run workflow" button for printing on demand
+    inputs:
+      weeks:
+        description: "Weeks to print, e.g. 1-6 or 2 5 (leave blank for the latest week)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -30,7 +35,25 @@ jobs:
       - name: Print this week's edition
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python sleeper_gazette.py --out gazette
+          WEEKS: ${{ inputs.weeks }}
+        run: |
+          if [ -z "$WEEKS" ]; then
+            python sleeper_gazette.py --out gazette
+            exit 0
+          fi
+          for part in $WEEKS; do
+            if [[ "$part" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+              list=$(seq "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}")
+            elif [[ "$part" =~ ^[0-9]+$ ]]; then
+              list="$part"
+            else
+              echo "Skipping '$part': use numbers like 3 or ranges like 1-6"; continue
+            fi
+            for w in $list; do
+              echo "Printing week $w"
+              python sleeper_gazette.py --out gazette --week "$w"
+            done
+          done
 
       - name: Save the paper's memory
         run: |
