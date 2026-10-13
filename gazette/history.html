@@ -1,0 +1,224 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>The Helmet Brigade Gazette: league history</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400;1,8..60,600&family=UnifrakturMaguntia&display=swap" rel="stylesheet"><style>
+:root{--paper:#F1DFD1;--ink:#262626;--head:#000;--rule:#000;--soft:rgba(0,0,0,.28);--win:#1E5B3C;--muted:#5b5048}
+*{box-sizing:border-box}
+html{background:#d9c6b8}
+body{margin:0;color:var(--ink);font:17px/1.55 'Source Serif 4',Georgia,'Times New Roman',serif;font-optical-sizing:auto}
+.sheet{max-width:1180px;margin:0 auto;padding:22px 30px 56px;background:var(--paper);min-height:100vh;
+  box-shadow:0 0 0 1px rgba(0,0,0,.08),0 18px 50px rgba(60,30,10,.18)}
+a{color:inherit}
+a:focus-visible{outline:2px solid var(--win);outline-offset:2px}
+.ears{display:grid;grid-template-columns:160px 1fr 160px;align-items:center;gap:18px;padding-bottom:8px}
+.ear{border:1px solid var(--rule);padding:8px 10px;font-size:13px;line-height:1.35;text-align:center}
+.ear b{display:block;font:600 15px/1.2 Oswald,'Arial Narrow',sans-serif}
+.title{margin:0;text-align:center;color:var(--head);font:400 clamp(42px,7.6vw,94px)/1.02 'UnifrakturMaguntia','Old English Text MT',serif}
+.title a{text-decoration:none}
+.dateline{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--rule);
+  border-bottom:4px double var(--rule);padding:5px 2px;font:500 14px/1.3 Oswald,'Arial Narrow',sans-serif}
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));border-bottom:1px solid var(--rule)}
+.score{padding:9px 12px;border-right:1px solid var(--soft);font:500 15px/1.4 Oswald,'Arial Narrow',sans-serif;text-decoration:none}
+.score:last-child{border-right:0}
+.score:hover .tm{text-decoration:underline}
+.score div{display:flex;justify-content:space-between;gap:10px}
+.score .tm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score .won{color:var(--win);font-weight:700}
+.score .pts{font-variant-numeric:tabular-nums}
+.front{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:30px;padding:20px 0 24px;border-bottom:4px double var(--rule)}
+.hed{margin:0 0 12px;color:var(--head);font:700 clamp(36px,5.6vw,70px)/.98 Oswald,'Arial Narrow',sans-serif;letter-spacing:-.012em;text-wrap:balance}
+.dek{margin:0 0 16px;font-size:21px;line-height:1.35;font-style:italic;max-width:46em}
+.cols{column-count:2;column-gap:30px;column-rule:1px solid var(--soft)}
+.cols p{margin:0 0 .85em;text-align:justify;hyphens:auto}
+.cols p:first-child::first-letter{float:left;font:700 4.1em/.8 Oswald,'Arial Narrow',sans-serif;padding:.06em .09em 0 0;color:var(--head)}
+.byline{font:500 13px/1.3 Oswald,'Arial Narrow',sans-serif;color:var(--muted);margin:0 0 12px}
+aside.side{border-left:1px solid var(--rule);padding-left:22px}
+h3{margin:0 0 10px;padding-top:6px;border-top:4px solid var(--rule);color:var(--head);font:700 22px/1.15 Oswald,'Arial Narrow',sans-serif}
+h3 small{font:italic 400 14px 'Source Serif 4',Georgia,serif;color:var(--muted);margin-left:6px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;font-variant-numeric:tabular-nums}
+th{font:500 13px Oswald,'Arial Narrow',sans-serif;text-align:left;border-bottom:1px solid var(--rule);padding:4px 6px 4px 0}
+td{border-bottom:1px solid var(--soft);padding:5px 6px 5px 0;vertical-align:top}
+td.n,th.n{text-align:right}
+.up{color:var(--win)}
+table.stand{font-size:14px}
+table.stand td{vertical-align:middle;padding:6px 4px}
+table.stand th{padding:4px}
+.nw{white-space:nowrap}
+.rk{color:var(--muted);width:1.6em}
+.who{display:flex;align-items:center;gap:8px;min-width:0}
+.av{width:22px;height:22px;border-radius:50%;flex:none;object-fit:cover;background:rgba(0,0,0,.08);filter:grayscale(.3)}
+.nm{line-height:1.25;overflow-wrap:anywhere}
+.mv{display:inline-block;margin-left:6px;font:600 11px/1 Oswald,'Arial Narrow',sans-serif;white-space:nowrap;vertical-align:1px}
+.previously{margin-top:24px}
+figure.ph{margin:0 0 14px;break-inside:avoid}
+.ph .frame{position:relative;overflow:hidden;background:#cdb8a9;border:1px solid var(--rule)}
+.ph img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;object-position:50% 20%;
+  filter:grayscale(1) contrast(1.3) brightness(1.04) sepia(.18);transition:filter .35s}
+.ph .frame::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.32;
+  background:radial-gradient(circle,#000 .9px,transparent 1.3px) 0 0/4px 4px}
+.ph:hover img{filter:none}
+.ph:hover .frame::after{opacity:0}
+.ph figcaption{font-size:14px;line-height:1.4;font-style:italic;padding:6px 0 0;border-bottom:1px solid var(--soft);padding-bottom:8px}
+.ph.lead-photo img{aspect-ratio:5/4}
+.ph.thumb{float:right;width:84px;margin:4px 0 6px 12px}
+.ph.thumb img{aspect-ratio:1}
+.box.feature{grid-column:span 2}
+.box.feature .ph.wide{float:left;width:46%;margin:2px 20px 10px 0}
+.box.feature .line{clear:both}
+.kicker{margin:0 0 4px;font:600 13px/1.2 Oswald,'Arial Narrow',sans-serif;color:var(--win);letter-spacing:.02em}
+.posters{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:26px}
+.poster{border:1px solid var(--rule);padding:14px 16px 12px;text-align:center;background:rgba(255,255,255,.22)}
+.poster .ph{margin:8px auto 10px;max-width:250px}
+.poster .ph img{aspect-ratio:1}
+.ptitle{margin:0;font:700 34px/1 Oswald,'Arial Narrow',sans-serif;color:var(--head)}
+.psub{margin:4px 0 0;font-style:italic;font-size:15px}
+.pname{margin:0;font:700 20px/1.2 Oswald,'Arial Narrow',sans-serif;color:var(--head)}
+.pstat{margin:2px 0 8px;font:500 14px Oswald,'Arial Narrow',sans-serif;color:var(--muted)}
+.pcap{margin:0;font-size:15px;line-height:1.45}
+.poster.potw{border:4px double var(--rule)}
+.poster.potw .ptitle{font-size:26px;padding-bottom:6px;border-bottom:1px solid var(--rule)}
+.poster.missing{border:2px dashed #2f4a6b;background:rgba(240,246,252,.35)}
+.poster.missing .ptitle{color:#2f4a6b;font-size:44px;letter-spacing:.06em}
+.poster.wanted{background:#e9d3b2;border:3px solid #4a3218;box-shadow:inset 0 0 0 5px #e9d3b2,inset 0 0 0 6px #4a3218}
+.poster.wanted .ptitle{font:400 54px/1 'UnifrakturMaguntia',serif;color:#3a2410}
+.poster.wanted .ph img{filter:grayscale(1) sepia(.75) contrast(1.25)}
+.poster.wanted .ph:hover img{filter:none}
+.down{color:#8a2a1c}
+.section{padding-top:26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:26px 30px}
+.box h4{margin:0 0 6px;color:var(--head);font:700 23px/1.1 Oswald,'Arial Narrow',sans-serif;text-wrap:balance}
+.box p{margin:0 0 10px}
+.line{font:500 14px/1.45 Oswald,'Arial Narrow',sans-serif;border-top:1px solid var(--rule);padding-top:6px}
+.line div{display:flex;justify-content:space-between}
+.perf{font-size:14px;color:var(--muted);margin-top:6px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px}
+.three>div+div{border-left:1px solid var(--soft);padding-left:30px}
+dl{margin:0}
+dt{font:600 16px/1.2 Oswald,'Arial Narrow',sans-serif;color:var(--head);margin-top:12px}
+dt:first-child{margin-top:0}
+dd{margin:2px 0 0}
+.column{background:rgba(255,255,255,.28);border:1px solid var(--rule);padding:16px 20px}
+.column h4{margin:0 0 8px;font:italic 600 26px/1.15 'Source Serif 4',Georgia,serif;color:var(--head)}
+.column p{margin:0 0 .8em}
+ul.plain{margin:0;padding:0;list-style:none}
+ul.plain li{padding:6px 0;border-bottom:1px solid var(--soft)}
+.previously{font-size:15px}
+.previously a{font-weight:600}
+footer{margin-top:34px;border-top:4px double var(--rule);padding-top:10px;display:flex;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;font:500 15px Oswald,'Arial Narrow',sans-serif}
+.histlink{margin:16px 0 4px;font:600 18px Oswald,'Arial Narrow',sans-serif}
+.archive li{padding:14px 0;border-bottom:1px solid var(--soft);list-style:none}
+.archive a{text-decoration:none}
+.archive a:hover h4{text-decoration:underline}
+.archive h4{margin:2px 0;font:700 28px/1.1 Oswald,'Arial Narrow',sans-serif;color:var(--head)}
+.archive p{margin:0;font-style:italic}
+
+.tw{overflow-x:auto}
+table.power td{vertical-align:top;padding:8px 6px 8px 0}
+td.big{font:700 22px/1 Oswald,'Arial Narrow',sans-serif;color:var(--head);width:1.6em}
+.tn{font-weight:600}
+.pb{display:block;font-style:italic;font-size:14.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.mv.flat{color:var(--muted)}
+.note{font-size:14px;color:var(--muted);margin:0 0 10px;line-height:1.45}
+.center{text-align:center}
+.pos{color:var(--win);font-weight:600}
+.neg{color:#8a2a1c;font-weight:600}
+.barcell{width:38%}
+.bar{position:relative;height:9px;background:rgba(0,0,0,.1);min-width:50px}
+.bar span{position:absolute;left:0;top:0;bottom:0;background:var(--win)}
+.bar.split{height:12px;background:#8a2a1c;margin:10px 0 4px}
+.card{border:1px solid var(--rule);padding:9px 12px;margin-bottom:10px}
+.card p{margin:0;font-size:14.5px}
+.card.good{border-left:6px solid var(--win)}
+.card.bad{border-left:6px solid #8a2a1c}
+.clabel{font:600 13px Oswald,'Arial Narrow',sans-serif;color:var(--muted)}
+.cteam{font:700 19px/1.2 Oswald,'Arial Narrow',sans-serif;color:var(--head);margin:0}
+.flip{font-size:14px;font-style:italic;margin:0 0 10px}
+.chart .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chart button{font:500 13px Oswald,'Arial Narrow',sans-serif;border:1px solid var(--rule);background:transparent;
+  color:var(--ink);padding:4px 9px;cursor:pointer;border-radius:0}
+.chart button.on{background:var(--c);border-color:var(--c);color:#fff}
+.chart button:focus-visible{outline:2px solid var(--win);outline-offset:2px}
+.svgwrap{overflow-x:auto}
+.chart svg{width:100%;min-width:560px;height:auto;display:block}
+.chart .gl{stroke:var(--soft);stroke-width:1}
+.chart .ax{font:500 12px Oswald,'Arial Narrow',sans-serif;fill:var(--muted)}
+.chart .avg{fill:none;stroke:var(--head);stroke-width:1.5;stroke-dasharray:5 4}
+.chart g polyline{fill:none;stroke:var(--ink);stroke-width:1.6;opacity:.35;transition:opacity .2s}
+.chart g circle{display:none}
+.chart.focus g polyline{opacity:.1}
+.chart g.on polyline{stroke:var(--c);stroke-width:3.5;opacity:1}
+.chart g.on circle{display:block;fill:var(--c)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:30px}
+.two>div+div{border-left:1px solid var(--soft);padding-left:30px}
+.pvh{margin:0 0 10px;font:700 28px/1.1 Oswald,'Arial Narrow',sans-serif;color:var(--head);text-wrap:balance}
+.matchup{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;text-align:center;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0}
+.matchup p{margin:0;font-size:14px}
+.vs{font:italic 600 18px 'Source Serif 4',Georgia,serif;color:var(--muted)}
+.lineitem{display:grid;grid-template-columns:minmax(0,1fr) 30% 3em;gap:10px;align-items:center;padding:7px 0;
+  border-bottom:1px solid var(--soft);font-size:15px}
+.lineitem span{text-align:right;font:500 14px Oswald,'Arial Narrow',sans-serif}
+.hist h3{margin-top:26px}
+.h2h-pick{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.h2h-pick select{font:500 16px Oswald,'Arial Narrow',sans-serif;padding:6px 8px;background:transparent;border:1px solid var(--rule);color:var(--ink);max-width:100%}
+.h2h-sum{font:700 24px/1.2 Oswald,'Arial Narrow',sans-serif;color:var(--head);margin:6px 0 10px}
+@media (max-width:860px){
+  .two{grid-template-columns:1fr}
+  .two>div+div{border-left:0;padding-left:0}
+  .front{grid-template-columns:1fr}
+  aside.side{border-left:0;padding-left:0}
+  .three{grid-template-columns:1fr}
+  .three>div+div{border-left:0;padding-left:0}
+  .box.feature{grid-column:auto}
+  .box.feature .ph.wide{float:none;width:100%;margin-right:0}
+}
+@media (max-width:620px){
+  .sheet{padding:14px 16px 40px}
+  .ears{grid-template-columns:1fr}
+  .ear{display:none}
+  .cols{column-count:1}
+}
+@media print{html{background:#fff}.sheet{box-shadow:none;background:#fff}}
+</style></head><body><div class="sheet"><header><div class="ears"><div class="ear"><b>League history</b>Since 2026</div><h1 class="title"><a href="index.html">The Helmet Brigade Gazette</a></h1><div class="ear"><b>1 season</b>35 games</div></div><div class="dateline"><span>The record book</span><span>Champions, records, and grudges</span><span></span></div></header><div class="hist"><section class="section"><h3>Head-to-head lookup <small>Pick any two teams</small></h3><div class="h2h-pick"><select id="h2h-a" aria-label="First team"><option value="0">AMBULANCE!</option><option value="1">Boomer Sooner</option><option value="2">Bower Rangers</option><option value="3">GopherDeeznuts </option><option value="4" selected>Jared’s Big Papa</option><option value="5">jjssrrgg</option><option value="6">Let Him Cook </option><option value="7">Love is War</option><option value="8">madmaxwellog49</option><option value="9">mikhawk</option><option value="10">Olichode</option><option value="11">RomoCop</option><option value="12">THE crab warriors</option><option value="13">They Laported the Nabers</option></select><span class="vs">vs.</span><select id="h2h-b" aria-label="Second team"><option value="0">AMBULANCE!</option><option value="1">Boomer Sooner</option><option value="2">Bower Rangers</option><option value="3">GopherDeeznuts </option><option value="4">Jared’s Big Papa</option><option value="5">jjssrrgg</option><option value="6">Let Him Cook </option><option value="7">Love is War</option><option value="8">madmaxwellog49</option><option value="9">mikhawk</option><option value="10">Olichode</option><option value="11">RomoCop</option><option value="12" selected>THE crab warriors</option><option value="13">They Laported the Nabers</option></select></div><div id="h2h-out" aria-live="polite"></div><script type="application/json" id="h2h-data">{"teams": ["AMBULANCE!", "Boomer Sooner", "Bower Rangers", "GopherDeeznuts ", "Jared\u2019s Big Papa", "jjssrrgg", "Let Him Cook ", "Love is War", "madmaxwellog49", "mikhawk", "Olichode", "RomoCop", "THE crab warriors", "They Laported the Nabers"], "games": [[2026, 1, 12, 4, 138.36, 127.12, 0], [2026, 1, 6, 11, 91.66, 128.1, 0], [2026, 1, 10, 1, 95.24, 86.84, 0], [2026, 1, 13, 8, 125.76, 163.96, 0], [2026, 1, 5, 7, 117.0, 114.68, 0], [2026, 1, 3, 2, 138.36, 127.1, 0], [2026, 1, 9, 0, 62.12, 124.06, 0], [2026, 2, 11, 4, 60.4, 94.06, 0], [2026, 2, 12, 10, 95.4, 81.94, 0], [2026, 2, 6, 8, 100.48, 113.32, 0], [2026, 2, 7, 1, 112.9, 113.38, 0], [2026, 2, 13, 2, 109.78, 119.88, 0], [2026, 2, 5, 0, 152.46, 97.28, 0], [2026, 2, 9, 3, 109.72, 160.42, 0], [2026, 3, 10, 4, 133.14, 73.52, 0], [2026, 3, 11, 8, 92.88, 113.26, 0], [2026, 3, 12, 7, 103.54, 174.2, 0], [2026, 3, 6, 2, 111.1, 94.34, 0], [2026, 3, 1, 0, 108.92, 107.24, 0], [2026, 3, 13, 9, 140.58, 107.56, 0], [2026, 3, 5, 3, 76.74, 137.32, 0], [2026, 4, 4, 8, 136.42, 114.08, 0], [2026, 4, 10, 7, 145.76, 116.74, 0], [2026, 4, 11, 2, 152.2, 113.26, 0], [2026, 4, 12, 0, 135.98, 132.7, 0], [2026, 4, 6, 9, 89.14, 102.08, 0], [2026, 4, 1, 3, 164.58, 102.52, 0], [2026, 4, 13, 5, 107.12, 72.5, 0], [2026, 5, 7, 4, 171.88, 80.54, 0], [2026, 5, 8, 2, 123.34, 148.12, 0], [2026, 5, 10, 0, 91.32, 128.14, 0], [2026, 5, 11, 9, 152.52, 147.94, 0], [2026, 5, 12, 3, 87.8, 147.2, 0], [2026, 5, 6, 5, 108.7, 77.94, 0], [2026, 5, 13, 1, 136.3, 112.86, 0]]}</script><script>
+(function(){
+  var D=JSON.parse(document.getElementById('h2h-data').textContent);
+  var A=document.getElementById('h2h-a'),B=document.getElementById('h2h-b'),O=document.getElementById('h2h-out');
+  function el(tag,txt,cls){var x=document.createElement(tag);if(txt!=null)x.textContent=txt;if(cls)x.className=cls;return x;}
+  function run(){
+    var a=+A.value,b=+B.value;O.innerHTML='';
+    if(a===b){O.appendChild(el('p','Pick two different teams.','note'));return;}
+    var wa=0,wb=0,t=0,m=0,rows=[];
+    D.games.forEach(function(g){
+      var pa,pb;
+      if(g[2]===a&&g[3]===b){pa=g[4];pb=g[5];}else if(g[2]===b&&g[3]===a){pa=g[5];pb=g[4];}else return;
+      if(pa>pb)wa++;else if(pb>pa)wb++;else t++;
+      m+=Math.abs(pa-pb);rows.push([g[0],g[1],pa,pb,g[6]]);
+    });
+    var na=D.teams[a],nb=D.teams[b];
+    if(!rows.length){O.appendChild(el('p',na+' and '+nb+' have never played.','h2h-sum'));return;}
+    var rec=Math.max(wa,wb)+'-'+Math.min(wa,wb)+(t?'-'+t:'');
+    O.appendChild(el('p',wa===wb?'All square at '+rec:(wa>wb?na:nb)+' leads '+rec,'h2h-sum'));
+    O.appendChild(el('p',rows.length+' meeting'+(rows.length>1?'s':'')+', average margin '+(m/rows.length).toFixed(2)+' points.','note'));
+    var tb=el('table'),hd=el('thead'),tr=el('tr');
+    ['Season','Week',na,nb,''].forEach(function(h,i){var th=el('th',h);if(i>1&&i<4)th.className='n';tr.appendChild(th);});
+    hd.appendChild(tr);tb.appendChild(hd);var body=el('tbody');
+    rows.reverse().forEach(function(r){
+      var row=el('tr');row.appendChild(el('td',String(r[0])));row.appendChild(el('td',String(r[1])));
+      var c1=el('td',r[2].toFixed(2),'n'+(r[2]>r[3]?' pos':''));var c2=el('td',r[3].toFixed(2),'n'+(r[3]>r[2]?' pos':''));
+      row.appendChild(c1);row.appendChild(c2);row.appendChild(el('td',r[4]?'Playoffs':'','note'));body.appendChild(row);
+    });
+    tb.appendChild(body);O.appendChild(tb);
+  }
+  A.addEventListener('change',run);B.addEventListener('change',run);run();
+})();
+</script></section><section class="section two"><div><h3>Champions</h3><table><thead><tr><th class="n">Season</th><th>Champion</th><th>Runner-up</th></tr></thead><tbody><tr><td class='n'>2026</td><td colspan='2'><i>In progress</i></td></tr></tbody></table><h3>All-time records</h3><dl><dt>Highest score</dt><dd>Love is War, 174.20 vs. THE crab warriors (week 3, 2026)</dd><dt>Lowest score</dt><dd>RomoCop, 60.40 vs. Jared’s Big Papa (week 2, 2026)</dd><dt>Biggest blowout</dt><dd>91.34 points: Love is War over Jared’s Big Papa, 171.88–80.54 (week 5, 2026)</dd><dt>Closest game</dt><dd>0.48 points: Boomer Sooner over Love is War, 113.38–112.90 (week 2, 2026)</dd><dt>Most points in a regular season</dt><dd>Love is War, 690.40 in 2026 (2-3)</dd></dl></div><div><h3>All-time standings <small>Regular season</small></h3><div class="tw"><table><thead><tr><th>Team</th><th class="n">W-L</th><th class="n">Pct</th><th class="n">PF</th><th class="n">Yrs</th><th class="n">Titles</th></tr></thead><tbody><tr><td><b>GopherDeeznuts </b><span class='pb'>JorgusFantussy</span></td><td class='n nw'>4&#8209;1</td><td class='n nw'>80.0%</td><td class='n nw'>685.8</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>madmaxwellog49</b><span class='pb'>madmaxwellog49</span></td><td class='n nw'>3&#8209;2</td><td class='n nw'>60.0%</td><td class='n nw'>628.0</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>They Laported the Nabers</b><span class='pb'>lakesleeper</span></td><td class='n nw'>3&#8209;2</td><td class='n nw'>60.0%</td><td class='n nw'>619.5</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>Boomer Sooner</b><span class='pb'>iiSilverhammer</span></td><td class='n nw'>3&#8209;2</td><td class='n nw'>60.0%</td><td class='n nw'>586.6</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>RomoCop</b><span class='pb'>connal69</span></td><td class='n nw'>3&#8209;2</td><td class='n nw'>60.0%</td><td class='n nw'>586.1</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>THE crab warriors</b><span class='pb'>crabwarrior</span></td><td class='n nw'>3&#8209;2</td><td class='n nw'>60.0%</td><td class='n nw'>561.1</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>Olichode</b><span class='pb'>Olichode</span></td><td class='n nw'>3&#8209;2</td><td class='n nw'>60.0%</td><td class='n nw'>547.4</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>Love is War</b><span class='pb'>Miryth</span></td><td class='n nw'>2&#8209;3</td><td class='n nw'>40.0%</td><td class='n nw'>690.4</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>Bower Rangers</b><span class='pb'>JaredFishkin</span></td><td class='n nw'>2&#8209;3</td><td class='n nw'>40.0%</td><td class='n nw'>602.7</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>AMBULANCE!</b><span class='pb'>ChrisV6</span></td><td class='n nw'>2&#8209;3</td><td class='n nw'>40.0%</td><td class='n nw'>589.4</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>Jared’s Big Papa</b><span class='pb'>austinmorg</span></td><td class='n nw'>2&#8209;3</td><td class='n nw'>40.0%</td><td class='n nw'>511.7</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>Let Him Cook </b><span class='pb'>JerryMick</span></td><td class='n nw'>2&#8209;3</td><td class='n nw'>40.0%</td><td class='n nw'>501.1</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>jjssrrgg</b><span class='pb'>jjssrrgg</span></td><td class='n nw'>2&#8209;3</td><td class='n nw'>40.0%</td><td class='n nw'>496.6</td><td class='n'>1</td><td class='n'></td></tr><tr><td><b>mikhawk</b><span class='pb'>mikhawk</span></td><td class='n nw'>1&#8209;4</td><td class='n nw'>20.0%</td><td class='n nw'>529.4</td><td class='n'>1</td><td class='n'></td></tr></tbody></table></div></div></section><section class="section"><h3>Most lopsided trades ever <small>Points started by what each side received</small></h3><div class="tw"><table><thead><tr><th>When</th><th>Deal and points started after</th><th class='n'>Gap</th></tr></thead><tbody><tr><td class='nw'>Wk 3, 2026</td><td><b>Boomer Sooner</b> got Devaughn Vele: 30.90 pts<br><b>They Laported the Nabers</b> got Colston Loveland: 22.70 pts</td><td class='n nw'>8.20</td></tr><tr><td class='nw'>Wk 4, 2026</td><td><b>mikhawk</b> got DK Metcalf, Chris Olave: 33.50 pts<br><b>They Laported the Nabers</b> got Ja&#x27;Marr Chase: 25.40 pts</td><td class='n nw'>8.10</td></tr><tr><td class='nw'>Wk 1, 2026</td><td><b>Love is War</b> got 2026 1st-round pick, 2026 10th-round pick, 2026 11th-round pick, 2026 12th-round pick, 2026 13th-round pick, 2026 14th-round pick, 2026 2nd-round pick, 2026 3rd-round pick, 2026 4th-round pick, 2026 5th-round pick, 2026 6th-round pick, 2026 7th-round pick, 2026 8th-round pick, 2026 9th-round pick: 0.00 pts<br><b>Boomer Sooner</b> got 2026 1st-round pick, 2026 10th-round pick, 2026 11th-round pick, 2026 12th-round pick, 2026 13th-round pick, 2026 14th-round pick, 2026 2nd-round pick, 2026 3rd-round pick, 2026 4th-round pick, 2026 5th-round pick, 2026 6th-round pick, 2026 7th-round pick, 2026 8th-round pick, 2026 9th-round pick: 0.00 pts</td><td class='n nw'>0.00</td></tr></tbody></table></div></section></div><footer><a href="index.html">All editions</a><span></span></footer></div><script>
+document.querySelectorAll('.chart').forEach(function(c){
+  var pal=['#1E5B3C','#8a2a1c','#2f4a6b','#9a6b12','#6b2f6b','#2f6b6b'],n=0;
+  c.querySelectorAll('button[data-t]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var on=b.classList.toggle('on'),g=c.querySelector('g[data-t="'+b.dataset.t+'"]');
+      if(on){var col=pal[n++%pal.length];b.style.setProperty('--c',col);g.style.setProperty('--c',col);g.parentNode.appendChild(g);}
+      g.classList.toggle('on',on);
+      c.classList.toggle('focus',!!c.querySelector('button.on'));
+    });
+  });
+});
+</script></body></html>
