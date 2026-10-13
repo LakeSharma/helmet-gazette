@@ -46,11 +46,43 @@ VOICE = ("a sharp, funny small-town sports editor who loves a grudge match and "
 RIVALRIES = [
     # ("lake", "mike", "The Backyard Bowl"),
 ]
+# What to call each manager in articles. Match on team name or Sleeper display name
+# (capitals, spaces and punctuation are ignored). Anyone not listed keeps their display name.
+MANAGER_NAMES = {
+    "GopherDeeznuts": "Jorguss",
+    "madmaxwellog49": "Max",
+    "They Laported the Nabers": "Lake",
+    "Boomer Sooner": "Silverhammer",
+    "RomoCop": "Connor",
+    "THE crab warriors": "Jack",
+    "Olichode": "Oliver",
+    "Love is War": "Mike",
+    "Bower Rangers": "Jared",
+    "AMBULANCE!": "Chris",
+    "Jared's Big Papa": "Austin",
+    "Let Him Cook": "Austin Mick",
+    "mikhawk": "Jackson",
+    "mikehawk": "Jackson",
+}
+SHOW_PHOTOS = False  # Set to True to bring back the illustrated player photos
 MODEL = os.environ.get("GAZETTE_MODEL", "claude-sonnet-5-5")
 # --------------------------------------------------------------------------
 
 SLEEPER = "https://api.sleeper.app/v1"
 PLAYERS = {}
+STATS = {}   # season -> {"stats": {week: {pid: {...}}}, "proj": {week: {pid: pts}}}
+
+
+def _norm(x):
+    return re.sub(r"[^a-z0-9]", "", str(x or "").lower())
+
+
+_MGR = {_norm(k): v for k, v in MANAGER_NAMES.items()}
+
+
+def real_name(owner):
+    """A manager's name for articles: MANAGER_NAMES match on team or display name, else display name."""
+    return _MGR.get(_norm(owner.get("team"))) or _MGR.get(_norm(owner.get("name"))) or owner.get("name") or "Unknown"
 
 
 def get(path, retries=3):
@@ -100,16 +132,18 @@ def roman(n):
 
 # ----------------------------------------------------------------- players
 def load_players(data_dir):
-    path = data_dir / "players-v2.json"
-    fresh = path.exists() and (time.time() - path.stat().st_mtime) < 7 * 86400
+    path = data_dir / "players-v3.json"
+    fresh = path.exists() and (time.time() - path.stat().st_mtime) < 20 * 3600
     if not fresh:
-        print("Downloading the Sleeper player list (about 5 MB, refreshed weekly)...")
+        print("Downloading the Sleeper player list (about 5 MB, refreshed daily for injury news)...")
         try:
             raw = get("/players/nfl") or {}
             slim = {}
             for pid, p in raw.items():
                 name = p.get("full_name") or f"{p.get('first_name', '')} {p.get('last_name', '')}".strip()
-                slim[pid] = [name or pid, p.get("position") or "", p.get("team") or "", p.get("espn_id") or ""]
+                slim[pid] = [name or pid, p.get("position") or "", p.get("team") or "", p.get("espn_id") or "",
+                             p.get("injury_status") or "", p.get("injury_body_part") or "",
+                             p.get("years_exp"), p.get("age")]
             path.write_text(json.dumps(slim), encoding="utf-8")
         except Exception as e:
             print(f"  Couldn't refresh the player list ({e}); using the cached copy if there is one.")
@@ -138,8 +172,15 @@ def photo(pid):
                 f"https://a.espncdn.com/i/teamlogos/nfl/500/{t}.png")
     p = PLAYERS.get(pid)
     espn = p[3] if p and len(p) > 3 and p[3] else ""
-    backup = f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn}.png" if espn else ""
-    return (f"https://sleepercdn.com/content/nfl/players/{pid}.jpg", backup)
+    sleeper = f"https://sleepercdn.com/content/nfl/players/{pid}.jpg"
+    if espn:
+        return (f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn}.png", sleeper)
+    return (sleeper, "")
+
+
+def pinfo(pid, i, default=None):
+    p = PLAYERS.get(str(pid))
+    return p[i] if p and len(p) > i else default
 
 
 def pteam(pid):
@@ -200,7 +241,8 @@ def sync_league(arc, league_id, through_week=None, force=()):
     s.update(league_id=league_id, name=lg.get("name") or s.get("name") or "Our League",
              playoff_week_start=st.get("playoff_week_start") or 0,
              playoff_teams=st.get("playoff_teams") or 0,
-             roster_positions=lg.get("roster_positions") or [])
+             roster_positions=lg.get("roster_positions") or [],
+             scoring=lg.get("scoring_settings") or s.get("scoring") or {})
     if lg.get("status") == "complete" and "champion" not in s:
         s["champion"] = champion_of(league_id)
     if s.get("complete") and through_week is None:
@@ -407,7 +449,7 @@ def compute_facts(arc, season, week, paper):
         for key in [season] + sorted(arc["seasons"], key=int, reverse=True):
             o = arc["seasons"][key]["owners"].get(oid)
             if o:
-                return o["name"]
+                return real_name(o)
         return "Unknown"
 
     def avatar(oid):
@@ -510,16 +552,17 @@ def compute_facts(arc, season, week, paper):
     # Records
     records = []
     if everyone:
-        hi_pts = awards["high"]["pts"]
+        hi_pts, hi_oid = awards["high"]["pts"], hi[0]
+        lo_oid = lo[0]
         prev_scores = [p for g in allg if gkey(g["season"], g["week"]) < now for p in (g["pa"], g["pb"])]
         season_prev = [p for g in allg if g["season"] == season and g["week"] < week for p in (g["pa"], g["pb"])]
         if prev_scores and hi_pts > max(prev_scores):
-            records.append(f"{awards['high']['team']} set the all-time league record with {fmt(hi_pts)} points (old mark {fmt(max(prev_scores))}).")
+            records.append(f"{manager(hi_oid)} set the all-time league record with {fmt(hi_pts)} points (old mark {fmt(max(prev_scores))}).")
         elif season_prev and hi_pts > max(season_prev):
-            records.append(f"{awards['high']['team']}'s {fmt(hi_pts)} is the highest score of the {season} season.")
+            records.append(f"{manager(hi_oid)}'s {fmt(hi_pts)} is the highest score of the {season} season.")
         lo_pts = awards["low"]["pts"]
         if prev_scores and lo_pts < min(prev_scores):
-            records.append(f"{awards['low']['team']}'s {fmt(lo_pts)} is the lowest score in league history.")
+            records.append(f"{manager(lo_oid)}'s {fmt(lo_pts)} is the lowest score in league history.")
 
     # Standings with movement
     stand = []
@@ -533,13 +576,13 @@ def compute_facts(arc, season, week, paper):
         n = int(r["streak"][1:] or 0) if r["streak"] else 0
         if n >= 3 and r["streak"][0] in "WL":
             word = "won" if r["streak"][0] == "W" else "lost"
-            streaks.append(f"{team(r['oid'])} has {word} {n} straight.")
+            streaks.append(f"{manager(r['oid'])} has {word} {n} straight.")
     if week >= 3:
         for r in st:
             if r["l"] == 0 and r["w"] == week:
-                streaks.append(f"{team(r['oid'])} is still unbeaten at {r['w']}-0.")
+                streaks.append(f"{manager(r['oid'])} is still unbeaten at {r['w']}-0.")
             if r["w"] == 0 and r["l"] == week:
-                streaks.append(f"{team(r['oid'])} is still looking for its first win (0-{r['l']}).")
+                streaks.append(f"{manager(r['oid'])} is still looking for his first win (0-{r['l']}).")
 
     # Transactions
     this_wk = s["weeks"].get(str(week), {}).get("transactions", [])
@@ -636,13 +679,88 @@ def compute_facts(arc, season, week, paper):
         if len(previous) == 4:
             break
 
+    # Player profiles for everyone the stories might mention
+    latest = week >= max(int(k) for k in s["weeks"])
+    ranks = position_ranks(season, week)
+    week_pp = {}
+    for m in s["weeks"][str(week)]["matchups"]:
+        week_pp.update(m["pp"])
+    profiles = {}
+    def prof(pid):
+        if pid and pid not in profiles:
+            profiles[pid] = dossier(arc, season, week, pid, week_pp.get(pid), ranks, latest)
+        return profiles.get(pid) or {}
+    for gf in gfacts:
+        for t in gf["winner_top"][:2] + gf["loser_top"][:2]:
+            prof(t["pid"])
+        for b in gf["blunders"]:
+            prof(b.get("bench_pid"))
+    for k in ("player_of_week", "dud"):
+        if awards.get(k):
+            prof(awards[k]["pid"])
+    if wonder:
+        prof(wonder["pid"])
+
+    # Story angles for each game, as hints for the writer
+    streak_of_oid = {r["oid"]: r["streak"] for r in st}
+    proj_week = (STATS.get(season) or {}).get("proj", {}).get(str(week), {})
+    for g, gf in zip(games, gfacts):
+        mW, mL = (g["ma"], g["mb"]) if gf["winner_oid"] == g["a"] else (g["mb"], g["ma"])
+        angles = []
+        for side, m, mgr in (("winner", mW, gf["winner_manager"]), ("loser", mL, gf["loser_manager"])):
+            for pid in m["starters"]:
+                pts, d = m["pp"].get(pid, 0), None
+                proj = proj_week.get(pid)
+                if proj and proj >= 14 and pts <= 0.4 * proj:
+                    prof(pid)
+                    angles.append({"type": "bust", "player": pname(pid), "manager": mgr, "side": side,
+                                   "detail": f"projected {fmt(proj)}, scored {fmt(pts)}"})
+            tops = gf["winner_top"] if side == "winner" else gf["loser_top"]
+            for t in tops[:2]:
+                d = profiles.get(t["pid"]) or {}
+                notes = " ".join(d.get("notes", []))
+                base = {"player": t["name"], "manager": mgr, "side": side}
+                if "Returned this week" in notes:
+                    angles.append(dict(base, type="comeback"))
+                if t["pts"] >= 35:
+                    angles.append(dict(base, type="nuke"))
+                elif "Season high" in notes and t["pts"] >= 20:
+                    angles.append(dict(base, type="breakout"))
+                if d.get("rookie") and t["pts"] >= 18:
+                    angles.append(dict(base, type="rookie"))
+        if any(b.get("cost_game") for b in gf["blunders"]):
+            angles.append({"type": "bench_blunder", "manager": gf["loser_manager"]})
+        if gf["upset"]:
+            angles.append({"type": "upset"})
+        if gf["rivalry"]:
+            angles.append({"type": "rivalry", "name": gf["rivalry"]})
+        lm = gf.get("last_meeting")
+        if lm and not gf["tie"] and lm["winner"] == gf["loser"]:
+            angles.append({"type": "revenge", "manager": gf["winner_manager"]})
+        for oid, mgr in ((gf["winner_oid"], gf["winner_manager"]), (gf["loser_oid"], gf["loser_manager"])):
+            sk = streak_of_oid.get(oid, "")
+            if sk and int(sk[1:] or 0) >= 3:
+                angles.append({"type": "streak", "manager": mgr, "streak": sk})
+        if gf["margin"] >= 40:
+            angles.append({"type": "blowout"})
+        elif gf["margin"] < 3 and not gf["tie"]:
+            angles.append({"type": "nailbiter"})
+        gf["angles"] = angles
+
     # Players the paper could put in a photo, for the writer to choose from
     cands = {}
-    def cand(pid, name, why):
+    def cand(pid, name, why, mid=None):
         if pid and name and pid not in cands:
-            cands[pid] = {"player": name, "why": why}
+            cands[pid] = {"player": name, "why": why, "mid": mid}
     if awards.get("player_of_week"):
         cand(awards["player_of_week"]["pid"], awards["player_of_week"]["player"], "player of the week")
+    for gf in gfacts:
+        for t in gf["winner_top"][:2]:
+            cand(t["pid"], t["name"], f"top scorer for {gf['winner_manager']}", gf["mid"])
+        for t in gf["loser_top"][:1]:
+            cand(t["pid"], t["name"], f"top scorer for {gf['loser_manager']} in a loss", gf["mid"])
+        for b in gf["blunders"]:
+            cand(b.get("bench_pid"), b["bench"], f"left on the bench by {gf['winner_manager'] if b['team'] == gf['winner'] else gf['loser_manager']}", gf["mid"])
     if awards.get("bench_blunder"):
         b = awards["bench_blunder"]
         cand(b.get("bench_pid"), b["bench"], f"left on {b['team']}'s bench")
@@ -650,22 +768,252 @@ def compute_facts(arc, season, week, paper):
         cand(awards["dud"]["pid"], awards["dud"]["player"], "worst starter of the week")
     if wonder:
         cand(wonder["pid"], wonder["player"], "waiver pickup who delivered")
-    for g in gfacts:
-        for t in g["winner_top"][:1]:
-            cand(t["pid"], t["name"], f"top scorer for {g['winner']}")
-        for t in g["loser_top"][:1]:
-            cand(t["pid"], t["name"], f"top scorer for {g['loser']} in a loss")
-        for b in g["blunders"]:
-            cand(b.get("bench_pid"), b["bench"], f"left on {b['team']}'s bench")
     photo_candidates = [{"pid": k, **v} for k, v in cands.items()]
+    managers = {team(o): manager(o) for o in set(s["roster_owner"].values())}
 
     return {"paper": paper, "league": s["name"], "season": season, "week": week,
             "playoffs": is_playoffs(s, week), "games": gfacts, "standings": stand,
             "awards": awards, "records": records, "streaks": streaks, "moves": moves,
             "trade_tracker": trade_tracker, "pickup_hof": hof, "waiver_wonder": wonder,
             "rivalry_watch": rivalry_watch, "one_year_ago": one_year_ago, "previous": previous, "photo_candidates": photo_candidates,
+            "players": profiles, "managers": managers,
             **extra_facts(arc, season, week, team, named_rivals, st)}
 
+
+
+# ---------------------------------------------------------- player history
+STAT_KEYS = ["pass_yd", "pass_td", "pass_int", "rush_att", "rush_yd", "rush_td", "rec", "rec_tgt", "rec_yd",
+             "rec_td", "fum_lost", "fgm", "fga", "fgm_lng", "xpm", "def_td", "int", "sack", "pts_allow"]
+POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"]
+
+
+def _rows(data):
+    """Sleeper returns stats either as {pid: stats} or as [{player_id, stats}]."""
+    if isinstance(data, dict):
+        return {str(k): v for k, v in data.items() if isinstance(v, dict)}
+    if isinstance(data, list):
+        return {str(r.get("player_id")): (r.get("stats") or {}) for r in data if isinstance(r, dict) and r.get("player_id")}
+    return {}
+
+
+def fantasy_pts(st, scoring):
+    if scoring:
+        return round(sum(float(v) * scoring[k] for k, v in st.items()
+                         if k in scoring and isinstance(v, (int, float)) and isinstance(scoring[k], (int, float))), 2)
+    return r2(st.get("pts_ppr"))
+
+
+def fetch_week(kind, season, w):
+    pos = "&".join(f"position[]={p}" for p in POSITIONS)
+    for url in (f"/{kind}/nfl/regular/{season}/{w}",
+                f"https://api.sleeper.app/{kind}/nfl/{season}/{w}?season_type=regular&{pos}"):
+        try:
+            rows = _rows(get(url))
+        except Exception:
+            rows = {}
+        if rows:
+            return rows
+    return {}
+
+
+def sync_stats(s, season, through, data_dir):
+    """Every NFL player's weekly stats and projections for the season, cached in data/stats-<season>.json."""
+    path = data_dir / f"stats-{season}.json"
+    try:
+        cache = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except ValueError:
+        cache = {}
+    cache.setdefault("stats", {})
+    cache.setdefault("proj", {})
+    scoring = s.get("scoring") or {}
+    changed = False
+    for w in range(1, through + 2):
+        k = str(w)
+        if w <= through and (k not in cache["stats"] or w >= through - 1):
+            rows = fetch_week("stats", season, w)
+            if rows:
+                slim = {}
+                for pid, st in rows.items():
+                    pts = fantasy_pts(st, scoring)
+                    gp = st.get("gp") or (1 if pts or any(st.get(x) for x in STAT_KEYS) else 0)
+                    if not gp:
+                        continue
+                    d = {x: st[x] for x in STAT_KEYS if st.get(x)}
+                    if pid.isalpha() and "pts_allow" in st:
+                        d["pts_allow"] = st["pts_allow"]
+                    d["pts"], d["gp"] = pts, 1
+                    slim[pid] = d
+                cache["stats"][k] = slim
+                changed = True
+        if k not in cache["proj"] or w >= through:
+            rows = fetch_week("projections", season, w)
+            if rows:
+                cache["proj"][k] = {pid: v for pid, v in ((pid, fantasy_pts(st, scoring)) for pid, st in rows.items()) if v >= 1}
+                changed = True
+    if changed:
+        path.write_text(json.dumps(cache), encoding="utf-8")
+    if not cache["stats"]:
+        print("  Couldn't get NFL player stats from Sleeper; articles will use league scoring only.")
+    STATS[season] = cache
+
+
+def _n(x):
+    return f"{float(x):g}"
+
+
+def stat_line(d, pos):
+    if not d:
+        return ""
+    parts = []
+    if pos == "DEF":
+        if d.get("sack"):
+            parts.append(f"{_n(d['sack'])} sacks")
+        if d.get("int"):
+            parts.append(f"{_n(d['int'])} interceptions")
+        if d.get("def_td"):
+            parts.append(f"{_n(d['def_td'])} defensive TD")
+        if "pts_allow" in d:
+            parts.append(f"{_n(d['pts_allow'])} points allowed")
+        return ", ".join(parts)
+    if pos == "K":
+        if d.get("fga"):
+            parts.append(f"{_n(d.get('fgm', 0))} of {_n(d['fga'])} field goals" + (f" (long {_n(d['fgm_lng'])})" if d.get("fgm_lng") else ""))
+        if d.get("xpm"):
+            parts.append(f"{_n(d['xpm'])} extra points")
+        return ", ".join(parts)
+    if d.get("pass_yd"):
+        parts.append(f"{_n(d['pass_yd'])} passing yards" + (f", {_n(d['pass_td'])} TD" if d.get("pass_td") else "")
+                     + (f", {_n(d['pass_int'])} INT" if d.get("pass_int") else ""))
+    if d.get("rush_yd") or d.get("rush_td"):
+        parts.append(f"{_n(d.get('rush_att', 0))} carries for {_n(d.get('rush_yd', 0))} yards"
+                     + (f" and {_n(d['rush_td'])} TD" if d.get("rush_td") else ""))
+    if d.get("rec"):
+        parts.append(f"{_n(d['rec'])} catches" + (f" on {_n(d['rec_tgt'])} targets" if d.get("rec_tgt") else "")
+                     + f" for {_n(d.get('rec_yd', 0))} yards" + (f" and {_n(d['rec_td'])} TD" if d.get("rec_td") else ""))
+    if d.get("fum_lost"):
+        parts.append(f"{_n(d['fum_lost'])} lost fumble")
+    return "; ".join(parts)
+
+
+def position_ranks(season, week):
+    c = STATS.get(season) or {}
+    st = c.get("stats", {})
+    total = defaultdict(float)
+    for w in range(1, week + 1):
+        for pid, d in st.get(str(w), {}).items():
+            total[pid] += d.get("pts", 0)
+    def rank(scores):
+        by = defaultdict(list)
+        for pid, v in scores.items():
+            if ppos(pid) in POSITIONS:
+                by[ppos(pid)].append((v, pid))
+        out = {}
+        for pos, lst in by.items():
+            lst.sort(reverse=True)
+            for i, (_, pid) in enumerate(lst, 1):
+                out[pid] = f"{pos}{i}"
+        return out
+    return rank({p: d.get("pts", 0) for p, d in st.get(str(week), {}).items()}), rank(total)
+
+
+def dossier(arc, season, week, pid, league_pts=None, ranks=None, latest=False):
+    """Everything worth knowing about one player's week, as plain-English notes."""
+    c = STATS.get(season) or {"stats": {}, "proj": {}}
+    pos, nfl = ppos(pid), pteam(pid)
+    log = []
+    for w in range(1, week + 1):
+        wk = c["stats"].get(str(w))
+        if not wk:
+            continue
+        d = wk.get(pid)
+        teams_played = {k for k in wk if k.isalpha()}
+        if d:
+            log.append({"week": w, "pts": d["pts"]})
+        elif nfl and teams_played:
+            log.append({"week": w, "status": "did not play" if nfl in teams_played else "bye"})
+    this = c["stats"].get(str(week), {}).get(pid)
+    pts = league_pts if league_pts is not None else (this or {}).get("pts")
+    proj = c["proj"].get(str(week), {}).get(pid)
+    notes = []
+    before = [x for x in log if x["week"] < week]
+    missed = 0
+    for x in reversed(before):
+        if x.get("status") == "bye":
+            continue
+        if x.get("status") == "did not play":
+            missed += 1
+        else:
+            break
+    inj_hist = [(k, v) for k, v in (arc.get("injury_log", {}).get(pid) or {}).items()
+                if k.split("-")[0] == season and int(k.split("-")[1]) <= week]
+    body = next((v[1] for k, v in reversed(inj_hist) if v[1]), "")
+    if this and missed:
+        notes.append(f"Returned this week after missing {missed} game{'s' if missed > 1 else ''}"
+                     + (f" ({body})" if body else "") + ".")
+    if not this and log and log[-1]["week"] == week and log[-1].get("status") == "did not play":
+        notes.append("Did not play this week" + (f" ({body})" if body else "") + ".")
+    if log and log[-1]["week"] == week and log[-1].get("status") == "bye":
+        notes.append("Was on bye this week.")
+    played = [x["pts"] for x in before if "pts" in x]
+    if this and played:
+        avg = sum(played) / len(played)
+        if this["pts"] > max(played) and len(played) >= 2:
+            notes.append(f"Season high (previous best {fmt(max(played))}).")
+        elif this["pts"] < min(played) and len(played) >= 2:
+            notes.append(f"Season low (previous worst {fmt(min(played))}).")
+        if this["pts"] - avg >= 10:
+            notes.append(f"Well above his {fmt(avg)} average coming in.")
+        elif avg - this["pts"] >= 10:
+            notes.append(f"Well below his {fmt(avg)} average coming in.")
+        last = [x["pts"] for x in log if "pts" in x][-3:]
+        if len(last) == 3 and pos in ("QB", "RB", "WR", "TE"):
+            if all(v < 8 for v in last):
+                notes.append("Under 8 fantasy points in three straight games.")
+            elif all(v >= 20 for v in last):
+                notes.append("20-plus fantasy points in three straight games.")
+    if this and proj:
+        diff = this["pts"] - proj
+        if abs(diff) >= 8:
+            notes.append(f"Projected {fmt(proj)}, so he {'beat' if diff > 0 else 'missed'} it by {fmt(abs(diff))}.")
+    if pinfo(pid, 6) == 0:
+        notes.append("Rookie.")
+    age = pinfo(pid, 7)
+    if age and age >= 33:
+        notes.append(f"Age {age}.")
+    if ranks and this:
+        wr, sr = ranks[0].get(pid), ranks[1].get(pid)
+        if wr:
+            notes.append(f"{wr} this week" + (f", {sr} on the season" if sr else "") + ".")
+    runs = []
+    for k, v in sorted(inj_hist, key=lambda kv: int(kv[0].split("-")[1])):
+        wk_ = int(k.split("-")[1])
+        if wk_ >= week:
+            continue
+        if runs and runs[-1][2] == tuple(v) and runs[-1][1] == wk_ - 1:
+            runs[-1][1] = wk_
+        else:
+            runs.append([wk_, wk_, tuple(v)])
+    for a_, b_, v in runs:
+        when = f"week {a_}" if a_ == b_ else f"weeks {a_}-{b_}"
+        notes.append(f"Was listed {v[0]}" + (f" ({v[1]})" if v[1] else "") + f" in {when}.")
+    if latest and pinfo(pid, 4):
+        notes.append(f"Current injury designation: {pinfo(pid, 4)}" + (f" ({pinfo(pid, 5)})" if pinfo(pid, 5) else "") + ".")
+    games = [x for x in log if "pts" in x]
+    return {"name": pname(pid), "pos": pos, "nfl": nfl, "pts": pts, "projection": proj,
+            "stat_line": stat_line(this, pos), "rookie": pinfo(pid, 6) == 0,
+            "season_avg": round(sum(x["pts"] for x in games) / len(games), 2) if games else None,
+            "recent_games": log[-5:], "notes": notes}
+
+
+def record_injuries(arc, s, season, week):
+    """Save this week's injury designations so future editions know who was hurt and when."""
+    log = arc.setdefault("injury_log", {})
+    wk = s["weeks"].get(str(week), {})
+    for m in wk.get("matchups", []):
+        for pid in m["players"]:
+            st = pinfo(pid, 4)
+            if st:
+                log.setdefault(pid, {})[f"{season}-{week}"] = [st, pinfo(pid, 5) or ""]
 
 
 # ------------------------------------------------------------ deeper stats
@@ -981,37 +1329,164 @@ def series_line(g):
     return f"{who} leads the all-time series {rec}."
 
 
+SCENES = {
+    "nuke": "a mushroom cloud behind him and the nuclear briefcase in front: for a monster game",
+    "fire": "surrounded by flames: he's on fire or heating up",
+    "crown": "a gold crown on his head in front of royal curtains: king of the week",
+    "comeback": "hospital backdrop with a giant green CLEARED stamp: back from injury",
+    "bench": "stuck behind a wooden bench with a bucket of popcorn: left on the bench",
+    "rain": "a storm cloud raining on him: a dud",
+    "bargain": "a clearance-bin price tag: a cheap pickup who delivered",
+    "wrecking": "a wrecking ball and caution stripes: part of a blowout",
+    "rookie": "a ROOKIE balloon and a baby rattle: a rookie breaking out",
+}
+
+
+def scene_caption(scene, name, mgr, week, rnd):
+    options = {
+        "nuke": [f"{name} reaches for the launch codes.", f"{name} was not authorized to use this much force."],
+        "fire": [f"{name}, currently too hot to handle.", f"Someone get {name} a fire extinguisher."],
+        "crown": [f"All hail {name}, king of week {week}.", f"{name} accepts the crown and the gratitude of {mgr}."],
+        "comeback": [f"{name}, cleared and back to ruining weekends.", f"The medical staff signed off. The opposing defense did not."],
+        "bench": [f"{name} enjoys the game from the best seat in the house: {mgr}'s bench.",
+                  f"{name}, pictured doing exactly what {mgr} asked of him."],
+        "rain": [f"{name}'s week, summarized.", f"Forecast for {mgr}: cloudy, with a chance of regret."],
+        "bargain": [f"Found in the bargain bin: {name}.", f"{mgr} paid clearance prices for {name}. No returns, no regrets."],
+        "wrecking": [f"{name} brings the wrecking ball.", f"Demolition crew foreman {name}, at work."],
+        "rookie": [f"{name} is too young to know he isn't supposed to be this good.", f"Rookie {name}, already ahead of schedule."],
+    }
+    return rnd.choice(options.get(scene, [name]))
+
+
 def template_write(f):
     rnd = random.Random(f"{f['season']}-{f['week']}")
     games = {g["mid"]: g for g in f["games"]}
     aw = f["awards"]
+    M = f.get("managers") or {}
+    mg = lambda team: M.get(team, team)
+    P = f.get("players") or {}
+    recs = {r["team"]: f"{r['w']}-{r['l']}" + (f"-{r['t']}" if r["t"] else "") for r in f["standings"]}
+
+    def line(t):
+        d = P.get(t.get("pid")) or {}
+        return d.get("stat_line") or f"{fmt(t['pts'])} fantasy points"
+
+    def note(pid, starts):
+        for n in (P.get(pid) or {}).get("notes", []):
+            if n.startswith(starts):
+                return n
+        return None
+
+    def series_sentence(g):
+        sr = g["series"]
+        W, L = g["winner_manager"], g["loser_manager"]
+        if sr["meetings"] <= 1:
+            return rnd.choice([f"It was the first time {W} and {L} had met.", f"First meeting, first blood to {W}."])
+        w, l = sr["winner_wins"], sr["loser_wins"]
+        rec = f"{max(w, l)}-{min(w, l)}" + (f"-{sr['ties']}" if sr["ties"] else "")
+        if w == l:
+            return rnd.choice([f"That evens their history at {rec}.", f"Their all-time series is dead even at {rec}."])
+        lead = W if w > l else L
+        return rnd.choice([f"{lead} owns the series, {rec}.", f"Head to head, {lead} is up {rec} all time.",
+                           f"{lead} still holds the edge in this matchup, {rec}."])
+
+    used = set()
+    order = ["comeback", "nuke", "bench_blunder", "revenge", "upset", "rookie", "breakout", "bust",
+             "rivalry", "streak", "blowout", "nailbiter"]
+
+    def recap(g):
+        W, L = g["winner_manager"], g["loser_manager"]
+        score = f"{fmt(g['wp'])}–{fmt(g['lp'])}"
+        if g["tie"]:
+            return f"{W} and {L} finished dead even at {fmt(g['wp'])}. Nobody wins, everybody complains."
+        wt = g["winner_top"][0] if g["winner_top"] else None
+        lt = g["loser_top"][0] if g["loser_top"] else None
+        angles = {}
+        for a in g.get("angles", []):
+            angles.setdefault(a["type"], a)
+        kind = next((k for k in order if k in angles and k not in used), None) \
+            or next((k for k in order if k in angles), "default")
+        used.add(kind)
+        a = angles.get(kind, {})
+        X, who = a.get("player"), a.get("manager")
+        tx = next((t for t in g["winner_top"] + g["loser_top"] if t["name"] == X), None) if X else None
+        sents = []
+        if kind == "comeback" and tx:
+            m = re.search(r"missing (\d+) games?(?: \(([^)]+)\))?", note(tx["pid"], "Returned") or "")
+            gap = f"missing {m.group(1)} game{'s' if m.group(1) != '1' else ''}" if m else "some time on the sidelines"
+            hurt = f" with a {m.group(2)} injury" if m and m.group(2) else ""
+            sents.append(rnd.choice([f"After {gap}{hurt}, {X} came back and gave {who} {line(tx)}.",
+                                     f"{X} was back, and {who} noticed: {line(tx)} in his first game after {gap}{hurt}."]))
+        elif kind == "nuke" and tx:
+            other = L if a["side"] == "winner" else W
+            sents.append(rnd.choice([f"{X} went nuclear for {who}: {line(tx)}, worth {fmt(tx['pts'])} fantasy points.",
+                                     f"Somebody check on {other}. {X} dropped {line(tx)} on him."]))
+        elif kind == "bench_blunder":
+            b = next(b for b in g["blunders"] if b["cost_game"])
+            sents.append(rnd.choice([
+                f"{L} had the winning points on his bench. {b['bench']} scored {fmt(b['bench_pts'])} there while "
+                f"{b['starter']} managed {fmt(b['starter_pts'])} in the lineup, and the final margin was {fmt(g['margin'])}.",
+                f"This one is on {L}. Starting {b['starter']} ({fmt(b['starter_pts'])}) over {b['bench']} "
+                f"({fmt(b['bench_pts'])}) cost him a game he lost by {fmt(g['margin'])}."]))
+        elif kind == "revenge":
+            lm = g["last_meeting"]
+            when = f"week {lm['week']}" + (f" of {lm['season']}" if str(lm["season"]) != str(f["season"]) else "")
+            sents.append(rnd.choice([f"{W} had been waiting since {when}, when {L} got the better of him. Payback came {score}.",
+                                     f"{L} won the last one back in {when}. {W} evened the score, {score}."]))
+        elif kind == "upset":
+            u = g["upset"]
+            sents.append(rnd.choice([f"Nobody had {W} in this one. Sitting {ordinal(u['winner_rank'])} coming in, he took down "
+                                     f"{ordinal(u['loser_rank'])}-place {L}, {score}.",
+                                     f"The standings said {L}. The scoreboard said {W}, {score}."]))
+        elif kind == "rookie" and tx:
+            sents.append(rnd.choice([f"{X} does not play like a rookie. He gave {who} {line(tx)}.",
+                                     f"Rookie {X} had the best day on the field for {who}: {line(tx)}."]))
+        elif kind == "breakout" and tx:
+            sents.append(rnd.choice([f"{X} picked a good week for his best game of the season: {line(tx)} for {who}.",
+                                     f"Season high for {X}, and {who} needed every bit of it: {line(tx)}."]))
+        elif kind == "bust":
+            sents.append(rnd.choice([f"{who}'s week went sideways with {X}, who was {a['detail']}.",
+                                     f"{X} let {who} down: {a['detail']}."]))
+        elif kind == "rivalry":
+            sents.append(f"{W} takes this year's edition of {a['name']}, {score}.")
+        elif kind == "streak":
+            n, won = int(a["streak"][1:]), a["streak"][0] == "W"
+            sents.append(rnd.choice([f"{a['manager']} has now {'won' if won else 'lost'} {n} straight.",
+                                     f"Make it {n} {'wins' if won else 'losses'} in a row for {a['manager']}."]))
+        elif kind == "blowout":
+            sents.append(rnd.choice([f"This one was over by Sunday afternoon. {W} beat {L} {score}.",
+                                     f"{W} didn't just beat {L}, he buried him: {score}."]))
+        elif kind == "nailbiter":
+            sents.append(rnd.choice([f"{fmt(g['margin'])} points. That's all that separated {W} and {L} in a {score} finish.",
+                                     f"{W} survived, barely: {score} over {L}."]))
+        elif wt:
+            sents.append(rnd.choice([f"{W} handled {L}, {score}, behind {wt['name']}'s {line(wt)}.",
+                                     f"{wt['name']} did the heavy lifting for {W}: {line(wt)}."]))
+        else:
+            sents.append(f"{W} beat {L}, {score}.")
+        if score not in " ".join(sents):
+            sents.append(rnd.choice([f"Final: {W} {fmt(g['wp'])}, {L} {fmt(g['lp'])}.", f"{W} won it {score}.",
+                                     f"The final was {score}."]))
+        if lt and kind != "bench_blunder" and X != lt["name"]:
+            sents.append(rnd.choice([f"{L}'s best answer was {lt['name']}, with {line(lt)}.",
+                                     f"{lt['name']} kept {L} in it ({line(lt)}).",
+                                     f"For {L}, {lt['name']} had {line(lt)}."]))
+        elif wt and X != wt["name"] and kind != "default":
+            sents.append(f"{wt['name']} chipped in {line(wt)} for {W}.")
+        if rnd.random() < 0.6 or not recs.get(g["winner"]):
+            sents.append(series_sentence(g))
+        else:
+            sents.append(rnd.choice([f"{W} moves to {recs[g['winner']]}.", f"{L} falls to {recs.get(g['loser'], '')}."]))
+        return " ".join(sents)
+
     recaps = {}
     for g in f["games"]:
-        if g["tie"]:
-            hed = f"{g['winner']} and {g['loser']} tie at {fmt(g['wp'])}"
-        else:
-            hed = f"{g['winner']} {recap_verb(g['margin'], rnd)} {g['loser']}, {fmt(g['wp'])}–{fmt(g['lp'])}"
-        body = []
-        if g["winner_top"]:
-            t = g["winner_top"][0]
-            body.append(f"{t['name']} led {g['winner']} with {fmt(t['pts'])} points.")
-        if g["loser_top"]:
-            t = g["loser_top"][0]
-            body.append(f"{t['name']}'s {fmt(t['pts'])} weren't enough for {g['loser']}.")
-        for b in g["blunders"]:
-            if b["cost_game"]:
-                body.append(f"{b['team']} left {b['bench']} ({fmt(b['bench_pts'])}) on the bench while "
-                            f"{b['starter']} scored {fmt(b['starter_pts'])}. That swap alone would have flipped the result.")
-        if g["upset"]:
-            body.append(f"It's an upset: {g['winner']} came in ranked {ordinal(g['upset']['winner_rank'])}, "
-                        f"{g['loser']} {ordinal(g['upset']['loser_rank'])}.")
-        if g["rivalry"]:
-            body.append(f"{g['winner']} takes this year's edition of {g['rivalry']}.")
-        body.append(series_line(g))
-        recaps[str(g["mid"])] = {"headline": hed, "body": " ".join(body)}
+        hed = (f"{g['winner']} and {g['loser']} tie at {fmt(g['wp'])}" if g["tie"] else
+               f"{g['winner']} {recap_verb(g['margin'], rnd)} {g['loser']}, {fmt(g['wp'])}–{fmt(g['lp'])}")
+        recaps[str(g["mid"])] = {"headline": hed, "body": recap(g)}
 
     # Front page: pick the biggest story
-    hed, dek, focus, lead_photo = None, None, None, None
+    hed, dek, focus, lead_scene, lead_pid = None, None, None, None, None
     upsets = [g for g in f["games"] if g["upset"]]
     rival_games = [g for g in f["games"] if g["rivalry"]]
     costly = [g for g in f["games"] if any(b["cost_game"] for b in g["blunders"])]
@@ -1019,167 +1494,193 @@ def template_write(f):
         hed = f"{aw['high']['team']} rewrites the record book with {fmt(aw['high']['pts'])}"
         dek = f["records"][0]
         focus = next((g for g in f["games"] if g["winner"] == aw["high"]["team"]), None)
+        lead_scene = "nuke"
     elif upsets:
         g = max(upsets, key=lambda g: g["upset"]["winner_rank"] - g["upset"]["loser_rank"])
-        focus = g
+        focus, lead_scene = g, "fire"
         hed = f"{g['winner']} stuns {ordinal(g['upset']['loser_rank'])}-place {g['loser']}"
-        dek = f"The {ordinal(g['upset']['winner_rank'])}-place team won {fmt(g['wp'])}–{fmt(g['lp'])}."
+        dek = f"{g['winner_manager']} came in {ordinal(g['upset']['winner_rank'])} and won {fmt(g['wp'])}–{fmt(g['lp'])}."
     elif rival_games:
         g = rival_games[0]
-        focus = g
+        focus, lead_scene = g, "fire"
         hed = f"{g['winner']} claims {g['rivalry']}"
-        dek = f"{fmt(g['wp'])}–{fmt(g['lp'])} over {g['loser']}. {series_line(g)}"
+        dek = f"{g['winner_manager']} beat {g['loser_manager']} {fmt(g['wp'])}–{fmt(g['lp'])}. {series_sentence(g)}"
     elif aw.get("blowout") is not None and games[aw["blowout"]]["margin"] >= 40:
         g = games[aw["blowout"]]
-        focus = g
+        focus, lead_scene = g, "wrecking"
         hed = f"{g['winner']} {recap_verb(g['margin'], rnd)} {g['loser']} by {fmt(g['margin'])}"
-        dek = f"The final was {fmt(g['wp'])}–{fmt(g['lp'])}, the most lopsided game of the week."
+        dek = f"{g['winner_manager']} won {fmt(g['wp'])}–{fmt(g['lp'])}, the most lopsided game of the week."
     elif costly:
         g = costly[0]
         b = next(b for b in g["blunders"] if b["cost_game"])
-        focus = g
+        focus, lead_scene, lead_pid = g, "bench", b.get("bench_pid")
         hed = f"{b['bench']} watches from the bench as {b['team']} falls"
-        lead_photo = {"pid": b.get("bench_pid"), "caption":
-                      f"{b['bench']} scored {fmt(b['bench_pts'])} points this week. None of them counted."}
-        dek = f"{fmt(b['bench_pts'])} points sat unused in a {fmt(g['margin'])}-point loss."
+        dek = f"{mg(b['team'])} left {fmt(b['bench_pts'])} points unused in a {fmt(g['margin'])}-point loss."
     elif aw.get("nailbiter") is not None and games[aw["nailbiter"]]["margin"] < 3:
         g = games[aw["nailbiter"]]
-        focus = g
+        focus, lead_scene = g, "fire"
         hed = f"{g['winner']} survives {g['loser']} by {fmt(g['margin'])}"
-        dek = f"The closest finish of week {f['week']} ended {fmt(g['wp'])}–{fmt(g['lp'])}."
+        dek = f"{g['winner_manager']} edged {g['loser_manager']} {fmt(g['wp'])}–{fmt(g['lp'])}, the closest finish of the week."
     elif aw.get("high"):
         hed = f"{aw['high']['team']} leads week {f['week']} with {fmt(aw['high']['pts'])}"
-        dek = "The top score of the week, and a statement to the rest of the league."
+        dek = f"{mg(aw['high']['team'])} posted the top score of the week."
+        lead_scene = "crown"
     else:
         hed, dek = f"Week {f['week']} is in the books", "Results from around the league."
 
     lead = []
     if focus:
-        lead.append(f"{recaps[str(focus['mid'])]['body']}")
+        lead.append(recaps[str(focus["mid"])]["body"])
     if aw.get("high"):
         p = aw.get("player_of_week")
-        txt = f"{aw['high']['team']} posted the week's top score at {fmt(aw['high']['pts'])}"
-        txt += f", while {aw['low']['team']} brought up the rear with {fmt(aw['low']['pts'])}." if aw.get("low") else "."
+        txt = rnd.choice([f"{mg(aw['high']['team'])} had the week's best score at {fmt(aw['high']['pts'])}",
+                          f"Nobody scored more than {mg(aw['high']['team'])}'s {fmt(aw['high']['pts'])}"])
+        txt += f", while {mg(aw['low']['team'])} brought up the rear with {fmt(aw['low']['pts'])}." if aw.get("low") else "."
         if p:
-            txt += f" {p['player']} ({p['pos']}, {p['team']}) was the best starter in the league with {fmt(p['pts'])}."
+            pd = P.get(p.get("pid")) or {}
+            txt += (f" {p['player']} was the best starter in the league" +
+                    (f": {pd['stat_line']}." if pd.get("stat_line") else f" with {fmt(p['pts'])}."))
         lead.append(txt)
     if f["standings"]:
         top = f["standings"][0]
-        txt = f"{top['team']} sits atop the standings at {top['w']}-{top['l']}" + (f"-{top['t']}" if top["t"] else "") + "."
+        txt = f"{mg(top['team'])} sits atop the standings at {recs.get(top['team'], '')}."
         if f["streaks"]:
-            txt += " " + " ".join(f["streaks"][:3])
+            txt += " " + " ".join(f["streaks"][:2])
         lead.append(txt)
     if f["moves"]["trades"]:
         tr = f["moves"]["trades"][0]
         lead.append("On the trade front: " + "; ".join(
-            f"{sd['team']} gets {', '.join(sd['got']) or 'nothing'}" for sd in tr["sides"]) + ".")
+            f"{mg(sd['team'])} gets {', '.join(sd['got']) or 'nothing'}" for sd in tr["sides"]) + ".")
     elif f["waiver_wonder"]:
         w = f["waiver_wonder"]
-        lead.append(f"Off the wire, {w['player']} gave {w['team']} {fmt(w['this_week'])} points this week.")
+        lead.append(f"Off the wire, {w['player']} gave {mg(w['team'])} {fmt(w['this_week'])} points this week.")
     if f["previous"] and f["previous"][0].get("headline"):
         lead.append(f"Last week's front page: \u201c{f['previous'][0]['headline']}.\u201d The league has moved on, mostly.")
 
     col = []
     if aw.get("bad_beat"):
         b = aw["bad_beat"]
-        col.append(f"Spare a thought for {b['team']}. {fmt(b['pts'])} points would have beaten {b['would_beat']} "
+        col.append(f"Spare a thought for {mg(b['team'])}. {fmt(b['pts'])} points would have beaten {b['would_beat']} "
                    f"of {b['of']} teams this week, and it still went down as a loss.")
     if aw.get("lucky_win"):
         l = aw["lucky_win"]
-        col.append(f"Meanwhile {l['team']} won with {fmt(l['pts'])}, a score that beats only {l['would_beat']} "
+        col.append(f"Meanwhile {mg(l['team'])} won with {fmt(l['pts'])}, a score that beats only {l['would_beat']} "
                    f"of {l['of']} teams. Nobody hands back a win, but nobody should brag about this one either.")
     if aw.get("dud"):
         d = aw["dud"]
-        col.append(f"And to whoever started {d['player']}: {fmt(d['pts'])} points. {d['team']} will want that one back.")
+        col.append(f"And to {mg(d['team'])}, who started {d['player']}: {fmt(d['pts'])} points. That one stings.")
     if not col:
         col.append("A quiet week in the press box. That never lasts.")
 
     storylines = list(f["records"]) + list(f["streaks"])
     for g in upsets[:1]:
-        storylines.append(f"{g['winner']} upset {g['loser']} in week {f['week']}.")
+        storylines.append(f"{g['winner_manager']} upset {g['loser_manager']} in week {f['week']}.")
     for t in f["trade_tracker"]:
         if t["leader"] and t["gap"] >= 15:
-            storylines.append(f"{t['leader']} is winning the week-{t['week']} trade by {fmt(t['gap'])} points.")
+            storylines.append(f"{mg(t['leader'])} is winning the week-{t['week']} trade by {fmt(t['gap'])} points.")
     if f["pickup_hof"]:
         p = f["pickup_hof"][0]
-        storylines.append(f"{p['player']} is the best pickup of the season so far ({p['team']}, {fmt(p['pts'])} pts).")
+        storylines.append(f"{p['player']} is the best pickup of the season so far ({mg(p['team'])}, {fmt(p['pts'])} pts).")
 
-    # Photos and captions
-    if not lead_photo and focus and focus["winner_top"]:
-        t = focus["winner_top"][0]
-        lead_photo = {"pid": t.get("pid"), "caption": rnd.choice([
-            f"{t['name']} ({fmt(t['pts'])}) did most of the heavy lifting for {focus['winner']}.",
-            f"{t['name']}, pictured moments before ruining {focus['loser']}'s week.",
-            f"{t['name']} after hearing {focus['loser']} had started against him."])}
-    if not lead_photo and aw.get("player_of_week"):
-        p = aw["player_of_week"]
-        lead_photo = {"pid": p.get("pid"), "caption": f"{p['player']} put up {fmt(p['pts'])} for {p['team']}."}
+    # Photos: one on the front page, at most two in the recaps
+    def first_note(pid, starts):
+        return bool(note(pid, starts))
+    lead_photo = None
+    if focus and not lead_pid and focus["winner_top"]:
+        lead_pid = focus["winner_top"][0]["pid"]
+    if not lead_pid and aw.get("player_of_week"):
+        lead_pid, lead_scene = aw["player_of_week"].get("pid"), "crown"
+    if lead_pid:
+        if first_note(lead_pid, "Returned"):
+            lead_scene = "comeback"
+        lead_scene = lead_scene or "fire"
+        nm = (P.get(lead_pid) or {}).get("name") or pname(lead_pid)
+        owner = focus["winner_manager"] if focus else mg(aw.get("player_of_week", {}).get("team", ""))
+        if lead_scene == "bench" and focus:
+            owner = focus["loser_manager"]
+        lead_photo = {"pid": lead_pid, "scene": lead_scene,
+                      "caption": scene_caption(lead_scene, nm, owner, f["week"], rnd)}
+    recap_photos = {}
+    for g in f["games"]:
+        if len(recap_photos) >= 2:
+            break
+        if focus and g["mid"] == focus["mid"]:
+            continue
+        types = {a["type"]: a for a in g.get("angles", [])}
+        pick = None
+        if "comeback" in types:
+            pick = (types["comeback"]["player"], "comeback", types["comeback"]["manager"])
+        elif "nuke" in types:
+            pick = (types["nuke"]["player"], "nuke", types["nuke"]["manager"])
+        elif "rookie" in types:
+            pick = (types["rookie"]["player"], "rookie", types["rookie"]["manager"])
+        elif g["mid"] == aw.get("blowout") and g["margin"] >= 30 and g["winner_top"]:
+            pick = (g["winner_top"][0]["name"], "wrecking", g["winner_manager"])
+        if pick:
+            pid = next((t["pid"] for t in g["winner_top"] + g["loser_top"] if t["name"] == pick[0]), None)
+            if pid and pid != lead_pid:
+                recap_photos[str(g["mid"])] = {"pid": pid, "scene": pick[1],
+                                               "caption": scene_caption(pick[1], pick[0], pick[2], f["week"], rnd)}
     caps = {}
     if aw.get("player_of_week"):
         p = aw["player_of_week"]
-        caps["player_of_week"] = rnd.choice([
-            f"{p['player']}, informed he carried {p['team']} this week, asks about a raise.",
-            f"{fmt(p['pts'])} points. {p['team']} would like to thank {p['player']} and no one else.",
-            f"{p['player']} has requested his own parking spot at {p['team']} headquarters."])
+        caps["player_of_week"] = scene_caption("crown", p["player"], mg(p["team"]), f["week"], rnd)
     if aw.get("dud"):
         d = aw["dud"]
-        caps["wanted"] = (f"Last seen putting up {fmt(d['pts'])} points in {d['team']}'s lineup. "
+        caps["wanted"] = (f"Last seen putting up {fmt(d['pts'])} points in {mg(d['team'])}'s lineup. "
                           f"If spotted in a starting slot again, alert the commissioner.")
     if aw.get("bench_blunder"):
         b = aw["bench_blunder"]
-        caps["missing"] = (f"Last seen scoring {fmt(b['bench_pts'])} points on {b['team']}'s bench. "
+        caps["missing"] = (f"Last seen scoring {fmt(b['bench_pts'])} points on {mg(b['team'])}'s bench. "
                            f"Reward: one retroactive win, which is not how this works.")
-    if aw.get("blowout") is not None and games[aw["blowout"]]["winner_top"]:
-        g = games[aw["blowout"]]
-        t = g["winner_top"][0]
-        caps["blowout"] = f"{t['name']} ({fmt(t['pts'])}) surveys the wreckage of {g['loser']}'s week."
-    photos = {"lead": lead_photo, "captions": caps}
+    photos = {"lead": lead_photo, "recaps": recap_photos, "captions": caps}
 
     # Power ranking one-liners
     blurbs = {}
     pr = f.get("power_rankings") or []
     for x in pr:
-        t, avg, l3, lk = x["team"], x["avg"], x["last3"], x["luck_wins"]
+        t, avg, l3, lk, who = x["team"], x["avg"], x["last3"], x["luck_wins"], mg(x["team"])
         if x["rank"] == 1:
-            line = rnd.choice(["The team to beat. Everyone else is playing for second until further notice.",
-                               f"Averaging {fmt(avg)} a week. The rest of the league is on notice."])
+            line_ = rnd.choice([f"{who} is the team to beat. Everyone else is playing for second until further notice.",
+                                f"Averaging {fmt(avg)} a week. {who} has the rest of the league on notice."])
         elif x["rank"] == len(pr):
-            line = rnd.choice(["Somebody has to be last. This week, it's them.",
-                               f"{fmt(avg)} a week. The only direction left is up."])
+            line_ = rnd.choice([f"Somebody has to be last. This week, it's {who}.",
+                                f"{fmt(avg)} a week. The only direction left for {who} is up."])
         elif lk <= -1:
-            line = f"Better than the record says: the schedule owes them about {abs(lk):.1f} wins."
+            line_ = f"Better than the record says: the schedule owes {who} about {abs(lk):.1f} wins."
         elif lk >= 1:
-            line = f"The record is writing checks the scoring can't cash ({lk:.1f} wins of pure luck)."
+            line_ = f"{who}'s record is writing checks the scoring can't cash ({lk:.1f} wins of pure luck)."
         elif l3 - avg >= 12:
-            line = f"Heating up: {fmt(l3)} a week over the last three."
+            line_ = f"{who} is heating up: {fmt(l3)} a week over the last three."
         elif avg - l3 >= 12:
-            line = f"Cooling off fast: {fmt(l3)} a week lately, down from a {fmt(avg)} average."
+            line_ = f"{who} is cooling off fast: {fmt(l3)} a week lately, down from a {fmt(avg)} average."
         elif x["move"] >= 2:
-            line = f"Up {x['move']} spots, and nobody saw it coming."
+            line_ = f"Up {x['move']} spots, and nobody saw {who} coming."
         elif x["move"] <= -2:
-            line = f"Down {-x['move']} spots. The slide is on."
+            line_ = f"Down {-x['move']} spots. The slide is on for {who}."
         else:
-            line = rnd.choice([f"Averaging {fmt(avg)} and doing nothing to change anyone's mind.",
-                               "Solidly in the mix. Solidly unremarkable.",
-                               "Exactly as good as their record. No more, no less."])
-        blurbs[t] = line
+            line_ = rnd.choice([f"{who} is averaging {fmt(avg)} and doing nothing to change anyone's mind.",
+                                f"Solidly in the mix. Solidly unremarkable. That's {who}.",
+                                f"{who} is exactly as good as the record says. No more, no less."])
+        blurbs[t] = line_
 
     # Game of the week
     preview = None
     pv = (f.get("preview") or {}).get("game")
     if pv:
+        A, B = mg(pv["a"]), mg(pv["b"])
         sr = pv["series"]
         if sr["meetings"]:
-            lead_t = pv["a"] if sr["a_wins"] > sr["b_wins"] else pv["b"]
+            lead_m = A if sr["a_wins"] > sr["b_wins"] else B
             hi, lo = max(sr["a_wins"], sr["b_wins"]), min(sr["a_wins"], sr["b_wins"])
-            hist = (f"The all-time series is tied {hi}-{lo}." if hi == lo
-                    else f"{lead_t} leads the all-time series {hi}-{lo}.")
+            hist = (f"Their all-time series is tied {hi}-{lo}." if hi == lo
+                    else f"{lead_m} leads the all-time series {hi}-{lo}.")
         else:
             hist = "These two have never met."
         preview = {"headline": f"{pv['a']} vs. {pv['b']}" + (f": {pv['rivalry']}" if pv.get("rivalry") else ""),
-                   "body": (f"{pv['a']} ({pv['a_record']}) has averaged {fmt(pv['a_last3'])} over its last three games; "
-                            f"{pv['b']} ({pv['b_record']}) has averaged {fmt(pv['b_last3'])}. {hist} "
-                            f"The Gazette's pick: {pv['pick']}, with a {pv['pick_pct']}% chance to win.")}
+                   "body": (f"{A} ({pv['a_record']}) has averaged {fmt(pv['a_last3'])} over his last three games; "
+                            f"{B} ({pv['b_record']}) has averaged {fmt(pv['b_last3'])}. {hist} "
+                            f"The Gazette's pick: {mg(pv['pick'])}, with a {pv['pick_pct']}% chance to win.")}
 
     return {"headline": hed, "subhead": dek, "lead": lead, "recaps": recaps, "photos": photos,
             "power_blurbs": blurbs, "preview": preview,
@@ -1187,31 +1688,50 @@ def template_write(f):
 
 
 def ai_write(facts, model, key):
-    system = f"""You are the editor-in-chief of "{facts['paper']}", the weekly newspaper of a fantasy football league. Your voice: {VOICE}.
+    scenes = "\n".join(f'  "{k}": {v}' for k, v in SCENES.items())
+    photo_rules = photo_schema = ""
+    if SHOW_PHOTOS:
+        photo_rules = ("PHOTOS\nPhotos are illustrated scenes with the player's headshot dropped in. Available scenes:\n" + scenes +
+                       "\nChoose 1 to 3 photos: always one for \"lead\", plus at most two recaps where a scene genuinely fits the story. "
+                       "For a recap photo, choose a candidate from photo_candidates whose \"mid\" matches that game. Captions are one "
+                       "funny line that plays off the scene, about the fantasy result only, never the player's appearance or personal life.\n\n")
+        photo_schema = ('  "photos": [{"slot": "lead or a game\'s mid", "player": "exact name from photo_candidates", '
+                        '"scene": "a scene name", "caption": "..."}],\n')
+    system = f"""You are the editor-in-chief of "{facts['paper']}", the weekly newspaper of a fantasy football league among friends. Your voice: {VOICE}.
 
-Rules:
-- Use only the facts provided. Never invent players, scores, stats, quotes, trades, or events. Every number you write must appear in the facts.
-- Call teams by their team names; mention managers by name now and then.
-- Build continuity: use "previous" (earlier editions' headlines and storylines), "rivalry_watch", "trade_tracker", "pickup_hof" and "one_year_ago" to call back to running feuds, trade verdicts, and earlier predictions when the facts support it.
-- Point totals are fantasy points. Keep two decimals when quoting scores.
-- Return ONLY a JSON object, no markdown fences, shaped exactly like this:
+ACCURACY
+- Use only the facts provided. Never invent players, stats, injuries, quotes, trades, or events. Every number you write must appear in the facts.
+- Injury and history claims must come from a player's "notes" or "recent_games" in facts.players. If the notes don't say why a player missed games, say he missed them, not why.
+
+NAMES
+- In article text (lead, recaps, column, preview, captions, power blurbs), call managers by their names from facts.managers, e.g. "Jack", never "THE crab warriors". Headlines use team names. You may occasionally use a possessive like "Jack's crab warriors" for flavor.
+
+WRITE LIKE A REAL SPORTS SECTION, NOT A BOX SCORE
+- Build each recap around a story. Each game has "angles" (comeback from injury, nuke, breakout, rookie, bust, bench blunder, revenge, upset, streak, rivalry, blowout, nailbiter), and facts.players has notes on each player's week: season highs, games missed, projections beaten or missed, positional ranks, recent form, injury designations. Pick the most interesting thread and tell it.
+- Describe performances with real football from facts.players[pid].stat_line, e.g. "caught nine balls for 141 yards and two scores". Write numbers in words or digits naturally. Use fantasy point totals sparingly: the final score once, plus at most one other fantasy number per recap.
+- Every recap must be built differently. Rotate what you open with: a player's comeback, a manager's decision, a single moment, the standings, the history between the two managers, a projection that went wrong. Vary sentence rhythm and length (2 to 5 sentences). No two recaps may open with the same kind of subject or structure.
+- Banned phrases: "led [team] with", "weren't enough", "it was the first meeting", "the all-time series is now", "in a game that", "posted a", "put up", and opening a recap with a team or manager name followed directly by a verb and the score. Never repeat a phrase across recaps.
+- The front-page story is a real narrative about the week's biggest story, with context from earlier weeks ("previous", rivalry_watch, trade_tracker, streaks).
+
+{photo_rules}
+
+Return ONLY a JSON object, no markdown fences, shaped exactly like this:
 {{"headline": "max 12 words", "subhead": "one sentence",
   "lead": ["3 to 5 paragraphs for the front-page story"],
-  "recaps": {{"<mid>": {{"headline": "...", "body": "2 to 4 sentences"}}}},
+  "recaps": {{"<mid>": {{"headline": "...", "body": "2 to 5 sentences"}}}},
   "column": {{"title": "...", "body": ["2 or 3 opinion paragraphs"]}},
   "storylines": ["3 to 6 short sentences worth remembering in future editions"],
   "power_blurbs": {{"<team name>": "one-line roast or compliment for every team in power_rankings"}},
   "preview": {{"headline": "...", "body": "3 to 4 sentences previewing preview.game"}},
-  "lead_photo": "the exact name of one player from photo_candidates to show beside the front-page story",
-  "captions": {{"lead": "caption for that photo", "player_of_week": "...", "wanted": "for the worst starter (awards.dud)",
-               "missing": "for the benched player (awards.bench_blunder)", "blowout": "for the blowout winner's top scorer"}}}}
+{photo_schema}  "captions": {{"player_of_week": "...", "wanted": "for the worst starter (awards.dud)", "missing": "for the benched player (awards.bench_blunder)"}}}}
 Write one recap per game, keyed by that game's "mid".
-Power blurbs: one line per team, keyed by the exact team name, grounded in that team's numbers (record, average, last-3 average, luck_wins, movement). Playful roasts are welcome.
-Preview: build hype for next week's game of the week from preview.game, and state the paper's pick exactly as given (preview.game.pick at pick_pct percent). If picks_record exists, you may brag or eat crow about it, especially picks_record.last_game.
-Captions are one funny sentence each, like a tabloid photo caption. Joke about the fantasy result and the lineup decisions only, never about the player's appearance or personal life. The "missing" poster is already headed "Missing: have you seen this player?" and the "wanted" poster "Wanted for crimes against a starting lineup", so don't repeat those phrases."""
-    body = json.dumps({"model": model, "max_tokens": 6000, "system": system,
+Power blurbs: one line per team, keyed by the exact team name, grounded in that team's numbers. Playful roasts are welcome.
+Preview: build hype for preview.game and state the paper's pick exactly as given (preview.game.pick at pick_pct percent). If picks_record exists, brag or eat crow about it, especially picks_record.last_game.
+Poster captions: the "missing" poster is already headed "Missing: have you seen this player?" and the "wanted" poster "Wanted for crimes against a starting lineup", so don't repeat those phrases."""
+    body = json.dumps({"model": model, "max_tokens": 9000, "system": system,
                        "messages": [{"role": "user", "content": "This week's facts:\n" + json.dumps(
-                           {k: v for k, v in facts.items() if k != "score_history"})}]}).encode()
+                           {k: v for k, v in facts.items()
+                            if k != "score_history" and (SHOW_PHOTOS or k != "photo_candidates")})}]}).encode()
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, method="POST", headers={
         "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"})
     try:
@@ -1241,15 +1761,27 @@ def merge_written(base, ai):
             if str(mid) in rec and isinstance(v, dict) and v.get("headline") and v.get("body"):
                 rec[str(mid)] = {"headline": str(v["headline"]), "body": str(v["body"])}
         out["recaps"] = rec
-    ph = {"lead": (base.get("photos") or {}).get("lead"), "captions": dict((base.get("photos") or {}).get("captions") or {})}
-    names = {c["player"].lower(): c["pid"] for c in (ai.get("_candidates") or [])}
-    pick = ai.get("lead_photo")
+    bph = base.get("photos") or {}
+    ph = {"lead": bph.get("lead"), "recaps": dict(bph.get("recaps") or {}), "captions": dict(bph.get("captions") or {})}
+    cands = {c["player"].lower(): c for c in (ai.get("_candidates") or [])}
+    mids = {str(g["mid"]) for g in ai.get("_games", [])}
+    if isinstance(ai.get("photos"), list):
+        picked = {}
+        for x in ai["photos"][:3]:
+            if not isinstance(x, dict):
+                continue
+            c = cands.get(str(x.get("player", "")).lower())
+            scene, slot = x.get("scene"), str(x.get("slot", ""))
+            if not c or scene not in SCENES:
+                continue
+            if slot == "lead" or (slot in mids and str(c.get("mid")) == slot):
+                picked[slot] = {"pid": c["pid"], "scene": scene, "caption": str(x.get("caption") or "")}
+        if "lead" in picked:
+            ph["lead"] = picked.pop("lead")
+        if picked or "lead" in [str(x.get("slot")) for x in ai["photos"] if isinstance(x, dict)]:
+            ph["recaps"] = picked
     caps = ai.get("captions") if isinstance(ai.get("captions"), dict) else {}
-    if isinstance(pick, str) and pick.lower() in names:
-        ph["lead"] = {"pid": names[pick.lower()], "caption": str(caps.get("lead") or "")}
-    elif ph["lead"] and caps.get("lead") and not pick:
-        ph["lead"] = dict(ph["lead"], caption=str(caps["lead"]))
-    for k in ("player_of_week", "wanted", "missing", "blowout"):
+    for k in ("player_of_week", "wanted", "missing"):
         if isinstance(caps.get(k), str) and caps[k].strip() and k in ph["captions"]:
             ph["captions"][k] = caps[k].strip()
     out["photos"] = ph
@@ -1328,9 +1860,23 @@ figure.ph{margin:0 0 14px;break-inside:avoid}
 .ph:hover .frame::after{opacity:0}
 .ph figcaption{font-size:14px;line-height:1.4;font-style:italic;padding:6px 0 0;border-bottom:1px solid var(--soft);padding-bottom:8px}
 .ph.lead-photo img{aspect-ratio:5/4}
+.scene .stage{position:relative;aspect-ratio:4/3;overflow:hidden;border:1px solid var(--rule);background:#e7d6c8}
+.scene svg.bg,.scene svg.fg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.scene .stage::after{display:none}
+.ph.scene img.cut{position:absolute;left:50%;bottom:0;height:86%;width:auto;max-width:98%;aspect-ratio:auto;
+  transform:translateX(-50%);object-fit:contain;filter:none}
+.ph.scene img.cut.round{height:60%;bottom:14%;aspect-ratio:1;border-radius:50%;object-fit:cover;border:4px solid #fff;
+  box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.ph.scene.s-crown img.cut{height:74%}
+.ph.scene.s-bench img.cut{bottom:12%;height:80%}
+.ph.scene.s-rain img.cut{height:72%}
+.ph.scene.s-wrecking img.cut{left:58%}
+.poster .ph.scene img.cut{aspect-ratio:auto}
+.poster .ph.scene .stage{aspect-ratio:1}
 .ph.thumb{float:right;width:84px;margin:4px 0 6px 12px}
 .ph.thumb img{aspect-ratio:1}
 .box.feature{grid-column:span 2}
+.box.feature .ph.scene.wide{float:left;width:48%;margin:2px 20px 10px 0}
 .box.feature .ph.wide{float:left;width:46%;margin:2px 20px 10px 0}
 .box.feature .line{clear:both}
 .kicker{margin:0 0 4px;font:600 13px/1.2 Oswald,'Arial Narrow',sans-serif;color:var(--win);letter-spacing:.02em}
@@ -1463,7 +2009,7 @@ ONERR = ("if(this.dataset.b&amp;&amp;this.src!==this.dataset.b){this.src=this.da
 
 def fig(pid, caption="", cls="", alt=""):
     """A newspaper photo of a player (halftone until hovered), hidden if no image loads."""
-    if not pid:
+    if not pid or not SHOW_PHOTOS:
         return ""
     src, backup = photo(pid)
     cap = f"<figcaption>{e(caption)}</figcaption>" if caption else ""
@@ -1527,6 +2073,151 @@ document.querySelectorAll('.chart').forEach(function(c){
 </script>"""
 
 
+
+_UID = [0]
+
+
+def _trefoil(cx, cy, r):
+    parts = []
+    for start in (-120, 0, 120):
+        a1, a2 = math.radians(start - 30 - 90), math.radians(start + 30 - 90)
+        parts.append(f'<path d="M{cx} {cy} L{cx + r * math.cos(a1):.1f} {cy + r * math.sin(a1):.1f} '
+                     f'A{r} {r} 0 0 1 {cx + r * math.cos(a2):.1f} {cy + r * math.sin(a2):.1f} Z" fill="#1c1c1c"/>')
+    return "".join(parts) + f'<circle cx="{cx}" cy="{cy}" r="{r * .22:.1f}" fill="#1c1c1c" stroke="#facc15" stroke-width="2"/>'
+
+
+def scene_layers(scene, u):
+    """(background svg body, foreground svg body) for a photo scene, drawn on a 400x300 canvas."""
+    if scene == "nuke":
+        bg = (f'<defs><linearGradient id="nk{u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a0a0a"/>'
+              f'<stop offset=".6" stop-color="#c2410c"/><stop offset="1" stop-color="#fbbf24"/></linearGradient></defs>'
+              f'<rect width="400" height="300" fill="url(#nk{u})"/>'
+              '<path d="M178 300 C184 240 176 205 168 172 L232 172 C224 205 216 240 222 300Z" fill="#fdba74"/>'
+              '<ellipse cx="200" cy="178" rx="78" ry="15" fill="#fb923c"/>'
+              '<ellipse cx="200" cy="118" rx="128" ry="64" fill="#fb923c"/><ellipse cx="200" cy="104" rx="100" ry="50" fill="#fdba74"/>'
+              '<ellipse cx="200" cy="94" rx="66" ry="30" fill="#fef3c7"/>'
+              '<ellipse cx="200" cy="292" rx="210" ry="26" fill="#fde68a" opacity=".85"/>')
+        fg = ('<g transform="translate(278 206) rotate(-9)"><path d="M34 16 v-11 h30 v11" fill="none" stroke="#111" stroke-width="7" stroke-linejoin="round"/>'
+              '<rect x="0" y="15" width="100" height="70" rx="8" fill="#1f1f1f" stroke="#000" stroke-width="2"/>'
+              '<rect x="0" y="40" width="100" height="5" fill="#3a3a3a"/>'
+              f'<circle cx="50" cy="52" r="20" fill="#facc15"/>{_trefoil(50, 52, 17)}</g>')
+        return bg, fg
+    if scene == "fire":
+        flames = lambda y, c, o: (f'<path d="M0 300 L0 {y} C30 {y - 60} 45 {y - 20} 60 {y - 70} C75 {y - 20} 95 {y - 40} 110 {y - 95} '
+                                  f'C130 {y - 30} 150 {y - 50} 165 {y - 80} C180 {y - 20} 205 {y - 35} 220 {y - 100} C240 {y - 30} 260 {y - 45} '
+                                  f'275 {y - 75} C292 {y - 20} 310 {y - 40} 330 {y - 90} C345 {y - 25} 370 {y - 45} 400 {y - 65} L400 300Z" '
+                                  f'fill="{c}" opacity="{o}"/>')
+        bg = (f'<defs><linearGradient id="fr{u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0606"/>'
+              f'<stop offset="1" stop-color="#7c1d0b"/></linearGradient></defs><rect width="400" height="300" fill="url(#fr{u})"/>'
+              + flames(250, "#dc2626", .9) + flames(270, "#f97316", .9))
+        fg = flames(320, "#f97316", .95) + flames(335, "#facc15", .95)
+        return bg, fg
+    if scene == "crown":
+        stripes = "".join(f'<rect x="{x}" y="0" width="20" height="300" fill="{"#4c1d95" if (x // 20) % 2 else "#5b21b6"}"/>'
+                          for x in range(0, 400, 20))
+        scallop = "".join(f'<circle cx="{x}" cy="26" r="20" fill="#b8860b"/>' for x in range(10, 410, 40))
+        bg = stripes + '<rect width="400" height="26" fill="#b8860b"/>' + scallop + \
+             '<rect x="0" y="262" width="400" height="38" fill="#7f1d1d"/>'
+        fg = ('<g transform="translate(200 46)"><path d="M-58 34 L-64 -22 L-32 6 L0 -34 L32 6 L64 -22 L58 34 Z" '
+              'fill="#facc15" stroke="#a16207" stroke-width="3" stroke-linejoin="round"/>'
+              '<rect x="-60" y="30" width="120" height="14" rx="3" fill="#eab308" stroke="#a16207" stroke-width="3"/>'
+              '<circle cx="0" cy="12" r="7" fill="#dc2626"/><circle cx="-34" cy="18" r="5" fill="#2563eb"/>'
+              '<circle cx="34" cy="18" r="5" fill="#16a34a"/><circle cx="-64" cy="-24" r="5" fill="#fde047"/>'
+              '<circle cx="0" cy="-36" r="5" fill="#fde047"/><circle cx="64" cy="-24" r="5" fill="#fde047"/></g>')
+        return bg, fg
+    if scene == "comeback":
+        grid = "".join(f'<line x1="{x}" y1="0" x2="{x}" y2="300" stroke="#b8d8cf" stroke-width="2"/>' for x in range(0, 400, 40)) + \
+               "".join(f'<line x1="0" y1="{y}" x2="400" y2="{y}" stroke="#b8d8cf" stroke-width="2"/>' for y in range(0, 300, 40))
+        bg = ('<rect width="400" height="300" fill="#dff1ec"/>' + grid +
+              '<circle cx="62" cy="62" r="40" fill="#fff" stroke="#dc2626" stroke-width="4"/>'
+              '<path d="M54 38h16v16h16v16h-16v16h-16v-16h-16v-16h16z" fill="#dc2626"/>'
+              '<polyline points="110,70 160,70 172,40 186,100 200,56 212,70 400,70" fill="none" stroke="#10b981" stroke-width="4"/>')
+        fg = ('<g transform="translate(286 238) rotate(-14)" opacity=".92"><rect x="-82" y="-27" width="164" height="54" rx="6" fill="none" '
+              'stroke="#15803d" stroke-width="6"/><text x="0" y="14" text-anchor="middle" font-family="Oswald,Impact,sans-serif" '
+              'font-weight="700" font-size="38" fill="#15803d" letter-spacing="2">CLEARED</text></g>'
+              '<g transform="translate(26 236) rotate(35)"><rect x="0" y="0" width="90" height="26" rx="13" fill="#e7c9a1"/>'
+              '<rect x="32" y="2" width="26" height="22" fill="#f5e1c4"/></g>')
+        return bg, fg
+    if scene == "bench":
+        crowd = "".join(f'<circle cx="{(i * 37) % 400}" cy="{20 + (i * 53) % 100}" r="9" fill="{c}"/>'
+                        for i, c in zip(range(60), ["#334155", "#64748b", "#94a3b8", "#475569"] * 15))
+        bg = ('<rect width="400" height="300" fill="#1e293b"/>' + crowd +
+              '<rect y="130" width="400" height="170" fill="#15803d"/>'
+              + "".join(f'<rect x="{x}" y="130" width="40" height="170" fill="#16a34a"/>' for x in range(0, 400, 80)))
+        fg = ('<rect x="20" y="214" width="360" height="18" rx="3" fill="#92400e"/><rect x="20" y="236" width="360" height="18" rx="3" fill="#a16207"/>'
+              '<rect x="20" y="258" width="360" height="12" rx="3" fill="#92400e"/>'
+              '<rect x="50" y="270" width="14" height="30" fill="#78350f"/><rect x="336" y="270" width="14" height="30" fill="#78350f"/>'
+              '<g transform="translate(318 168)"><path d="M0 0 h56 l-8 62 h-40 z" fill="#fff"/>'
+              '<path d="M10 0 h10 l-3 62 h-9 z M34 0 h10 l-4 62 h-9 z" fill="#dc2626"/>'
+              + "".join(f'<circle cx="{x}" cy="{y}" r="8" fill="#fde68a" stroke="#eab308"/>'
+                        for x, y in ((6, -2), (20, -8), (34, -4), (48, -6), (14, -16), (40, -16), (27, -20))) + '</g>')
+        return bg, fg
+    if scene == "rain":
+        bg = (f'<defs><linearGradient id="rn{u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#475569"/>'
+              f'<stop offset="1" stop-color="#94a3b8"/></linearGradient></defs><rect width="400" height="300" fill="url(#rn{u})"/>')
+        drops = "".join(f'<line x1="{x}" y1="{y}" x2="{x - 6}" y2="{y + 18}" stroke="#bfdbfe" stroke-width="3" stroke-linecap="round"/>'
+                        for x, y in ((120, 80), (150, 120), (180, 90), (210, 130), (240, 85), (270, 118), (300, 92),
+                                     (135, 160), (195, 170), (255, 165), (165, 200), (285, 205), (225, 210)))
+        fg = (drops + '<g fill="#334155"><circle cx="140" cy="58" r="34"/><circle cx="190" cy="40" r="44"/><circle cx="245" cy="50" r="38"/>'
+              '<circle cx="290" cy="64" r="28"/><rect x="120" y="58" width="190" height="34" rx="17"/></g>'
+              '<path d="M200 92 l-14 26 h12 l-8 24 l22 -32 h-12 l10 -18 z" fill="#facc15"/>')
+        return bg, fg
+    if scene == "bargain":
+        stripes = "".join(f'<path d="M{x} 0 l40 0 l-80 300 l-40 0 z" fill="#fde047"/>' for x in range(-40, 480, 80))
+        bg = ('<rect width="400" height="300" fill="#facc15"/>' + stripes +
+              '<rect x="0" y="0" width="400" height="56" fill="#dc2626"/>'
+              '<text x="200" y="40" text-anchor="middle" font-family="Oswald,Impact,sans-serif" font-weight="700" '
+              'font-size="34" fill="#fff" letter-spacing="4">CLEARANCE</text>')
+        fg = ('<line x1="96" y1="196" x2="150" y2="150" stroke="#78350f" stroke-width="3"/>'
+              '<g transform="translate(20 196) rotate(-16)"><path d="M0 14 L22 0 H128 V80 H22 L0 66 Z" fill="#fff7ed" stroke="#9a3412" stroke-width="3"/>'
+              '<circle cx="18" cy="40" r="6" fill="#facc15" stroke="#9a3412" stroke-width="2"/>'
+              '<text x="76" y="38" text-anchor="middle" font-family="Oswald,Impact,sans-serif" font-weight="700" font-size="20" fill="#9a3412">PRICE</text>'
+              '<text x="76" y="66" text-anchor="middle" font-family="Oswald,Impact,sans-serif" font-weight="700" font-size="24" fill="#dc2626">STEAL</text></g>')
+        return bg, fg
+    if scene == "wrecking":
+        stripes = "".join(f'<path d="M{x} 262 l24 0 l-24 38 l-24 0 z" fill="#111"/>' for x in range(0, 440, 48))
+        bg = ('<rect width="400" height="300" fill="#cbd5e1"/><rect y="200" width="400" height="62" fill="#94a3b8"/>'
+              '<g fill="#e2e8f0" opacity=".9"><circle cx="60" cy="210" r="34"/><circle cx="110" cy="200" r="26"/>'
+              '<circle cx="340" cy="206" r="38"/><circle cx="300" cy="214" r="24"/></g>'
+              '<rect y="262" width="400" height="38" fill="#facc15"/>' + stripes)
+        fg = ('<line x1="0" y1="0" x2="74" y2="96" stroke="#1f2937" stroke-width="5" stroke-dasharray="10 4"/>'
+              '<circle cx="84" cy="122" r="42" fill="#1f2937"/><circle cx="70" cy="106" r="11" fill="#475569"/>')
+        return bg, fg
+    if scene == "rookie":
+        stars = "".join(f'<path d="M{x} {y} l5 12 13 1 -10 8 4 13 -12 -7 -12 7 4 -13 -10 -8 13 -1z" fill="#fef9c3"/>'
+                        for x, y in ((40, 40), (340, 50), (90, 140), (320, 160), (200, 24), (40, 230)))
+        bg = '<rect width="400" height="300" fill="#bfdbfe"/>' + stars
+        fg = ('<path d="M330 150 C326 190 340 220 330 300" fill="none" stroke="#334155" stroke-width="2"/>'
+              '<ellipse cx="330" cy="104" rx="52" ry="58" fill="#ef4444"/><path d="M322 160 h16 l-8 -8z" fill="#ef4444"/>'
+              '<text x="330" y="112" text-anchor="middle" font-family="Oswald,Impact,sans-serif" font-weight="700" font-size="22" fill="#fff">ROOKIE</text>'
+              '<g transform="translate(30 220) rotate(-25)"><rect x="0" y="22" width="56" height="10" rx="5" fill="#f9a8d4"/>'
+              '<circle cx="70" cy="27" r="20" fill="#f9a8d4" stroke="#db2777" stroke-width="3"/><circle cx="-6" cy="27" r="10" fill="#f9a8d4"/></g>')
+        return bg, fg
+    return '<rect width="400" height="300" fill="#e7d6c8"/>', ""
+
+
+SCENE_ONERR = ("if(this.dataset.b){this.src=this.dataset.b;this.dataset.b='';this.classList.add('round')}"
+               "else{this.closest('figure').style.display='none'}")
+
+
+def scene_fig(pid, scene, caption="", cls=""):
+    """A photo illustration: drawn scene, player cutout, props on top."""
+    if not pid or not SHOW_PHOTOS:
+        return ""
+    if scene not in SCENES:
+        return fig(pid, caption, cls)
+    _UID[0] += 1
+    bg, fg = scene_layers(scene, _UID[0])
+    src, backup = photo(pid)
+    round_cls = " round" if not str(pid).isalpha() and "sleepercdn" in src else ""
+    cap = f"<figcaption>{e(caption)}</figcaption>" if caption else ""
+    return (f'<figure class="ph scene s-{scene} {cls}"><div class="stage">'
+            f'<svg class="bg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">{bg}</svg>'
+            f'<img class="cut{round_cls}" src="{e(src)}" data-b="{e(backup)}" alt="{e(pname(pid))}" loading="lazy" onerror="{SCENE_ONERR}">'
+            f'<svg class="fg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">{fg}</svg>'
+            f'</div>{cap}</figure>')
+
+
 def page(title, body):
     return (f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -1568,7 +2259,7 @@ def render_edition(ed, vol, prev_key, next_key):
     photos = w.get("photos") or {}
     caps = photos.get("captions") or {}
     lead_ph = photos.get("lead") or {}
-    lead_fig = fig(lead_ph.get("pid"), lead_ph.get("caption", ""), "lead-photo")
+    lead_fig = scene_fig(lead_ph.get("pid"), lead_ph.get("scene") or "plain", lead_ph.get("caption", ""), "lead-photo")
     paras = "".join(f"<p>{e(p)}</p>" for p in w["lead"])
     rows = []
     for r in f["standings"]:
@@ -1611,12 +2302,9 @@ def render_edition(ed, vol, prev_key, next_key):
         if any(b.get("cost_game") for b in g.get("blunders", [])):
             kickers.append("Bench blunder")
         kick = f'<p class="kicker">{e(" / ".join(kickers))}</p>' if kickers else ""
-        top = g["winner_top"][0] if g["winner_top"] else {}
-        feature = "Blowout" in kickers
-        if feature:
-            pic = fig(top.get("pid"), caps.get("blowout", ""), "wide")
-        else:
-            pic = fig(top.get("pid"), "", "thumb", f"{top.get('name', '')}, {fmt(top.get('pts', 0))} points")
+        rp = (photos.get("recaps") or {}).get(str(g["mid"]))
+        pic = scene_fig(rp["pid"], rp.get("scene") or "plain", rp.get("caption", ""), "wide") if rp and rp.get("pid") else ""
+        feature = bool(pic)
         perf = "; ".join(f"{t['name']} {fmt(t['pts'])}" for t in g["winner_top"][:2])
         perf_l = "; ".join(f"{t['name']} {fmt(t['pts'])}" for t in g["loser_top"][:2])
         out.append(f'<article class="box{" feature" if feature else ""}" id="g{g["mid"]}">{kick}{pic}'
@@ -1630,13 +2318,13 @@ def render_edition(ed, vol, prev_key, next_key):
     posters = []
     if aw.get("player_of_week") and aw["player_of_week"].get("pid"):
         p = aw["player_of_week"]
-        posters.append(f'<div class="poster potw"><p class="ptitle">Player of the week</p>{fig(p["pid"])}'
+        posters.append(f'<div class="poster potw"><p class="ptitle">Player of the week</p>{scene_fig(p["pid"], "crown")}'
                        f'<p class="pname">{e(p["player"])}</p><p class="pstat">{fmt(p["pts"])} pts for {e(p["team"])}</p>'
                        f'<p class="pcap">{e(caps.get("player_of_week", ""))}</p></div>')
     b = aw.get("bench_blunder")
     if b and b.get("bench_pid"):
         posters.append(f'<div class="poster missing"><p class="ptitle">Missing</p>'
-                       f'<p class="psub">Have you seen this {e(b.get("bench_pos") or "player")}?</p>{fig(b["bench_pid"])}'
+                       f'<p class="psub">Have you seen this {e(b.get("bench_pos") or "player")}?</p>{scene_fig(b["bench_pid"], "bench")}'
                        f'<p class="pname">{e(b["bench"])}</p><p class="pstat">{fmt(b["bench_pts"])} pts on the bench</p>'
                        f'<p class="pcap">{e(caps.get("missing", ""))}</p></div>')
     d = aw.get("dud")
@@ -1646,7 +2334,8 @@ def render_edition(ed, vol, prev_key, next_key):
                        f'<p class="pname">{e(d["player"])}</p><p class="pstat">{fmt(d["pts"])} pts for {e(d["team"])}</p>'
                        f'<p class="pcap">{e(caps.get("wanted", ""))}</p></div>')
     if posters:
-        out.append(f'<section class="section"><h3>The photo desk <small>Heroes, fugitives, and the missing</small></h3>'
+        desk = "The photo desk" if SHOW_PHOTOS else "Heroes and villains"
+        out.append(f'<section class="section"><h3>{desk} <small>Heroes, fugitives, and the missing</small></h3>'
                    f'<div class="posters">{"".join(posters)}</div></section>')
 
     # Power rankings
@@ -1845,7 +2534,7 @@ def render_history(arc, paper):
         for k in reversed(seasons):
             o = arc["seasons"][k]["owners"].get(oid)
             if o:
-                return o[field]
+                return real_name(o) if field == "name" else o[field]
         return "A former manager"
     team = lambda o: lookup(o, "team")
     manager = lambda o: lookup(o, "name")
@@ -2066,6 +2755,10 @@ def main():
         sys.exit(f"No scores for week {week} yet. Try again after the games, or pass --week.")
 
     load_players(data_dir)
+    print("Fetching NFL player stats and projections...")
+    sync_stats(arc["seasons"][season], season, week, data_dir)
+    if week >= max(int(k) for k in arc["seasons"][season]["weeks"]):
+        record_injuries(arc, arc["seasons"][season], season, week)
     paper = PAPER_NAME or f"The {arc['seasons'][season]['name']} Gazette"
     facts = compute_facts(arc, season, week, paper)
     written = template_write(facts)
@@ -2077,6 +2770,7 @@ def main():
         used_ai = isinstance(ai, dict)
         if used_ai:
             ai["_candidates"] = facts.get("photo_candidates", [])
+            ai["_games"] = facts.get("games", [])
         written = merge_written(written, ai)
 
     arc.setdefault("editions", {})[f"{season}-{week}"] = {
